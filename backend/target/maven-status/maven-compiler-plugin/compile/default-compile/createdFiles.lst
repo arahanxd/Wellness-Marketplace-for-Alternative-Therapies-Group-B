@@ -1,0 +1,14 @@
+com\wellnesshub\backend\security\JwtService.class
+com\wellnesshub\backend\auth\AuthDtos$RegisterRequest.class
+com\wellnesshub\backend\user\UserController.class
+com\wellnesshub\backend\auth\AuthDtos.class
+com\wellnesshub\backend\realtime\WebSocketConfig.class
+com\wellnesshub\backend\user\UserRepository.class
+com\wellnesshub\backend\auth\AuthDtos$AuthResponse.class
+com\wellnesshub\backend\auth\AuthDtos$LoginRequest.class
+com\wellnesshub\backend\user\UserEntity.class
+com\wellnesshub\backend\auth\AuthController.class
+com\wellnesshub\backend\user\UserRole.class
+com\wellnesshub\backend\WellnessBackendApplication.class
+com\wellnesshub\backend\security\JwtAuthenticationFilter.class
+com\wellnesshub\backend\security\SecurityConfig.class
