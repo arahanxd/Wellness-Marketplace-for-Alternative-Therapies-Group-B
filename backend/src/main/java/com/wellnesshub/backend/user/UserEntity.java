@@ -25,10 +25,17 @@ public class UserEntity {
 
     private String city;
     private String country;
+
     @Column(nullable = true)
     private String specialization;
-    @Column(nullable = true)
-    private String verificationStatus;
+
+    @Column(nullable = false)
+    private String verificationStatus = "PENDING"; 
+    // Only relevant for PRACTITIONER
+
+    // ========================
+    // Getters & Setters
+    // ========================
 
     public Long getId() {
         return id;
@@ -98,4 +105,3 @@ public class UserEntity {
         this.verificationStatus = verificationStatus;
     }
 }
-

@@ -36,17 +36,19 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf.disable()) // ✅ Important! Disables CSRF
+            .csrf(csrf -> csrf.disable()) // Disable CSRF for H2 console & APIs
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeRequests(auth -> auth
-                .antMatchers("/api/auth/**").permitAll()  // 🔓 Open login & register
-                .antMatchers("/ws/**").permitAll()
-                .antMatchers(HttpMethod.GET, "/actuator/health").permitAll()
-                .anyRequest().authenticated() // 🔒 Everything else needs auth
-            )
+            .antMatchers("/h2-console/**").permitAll()       
+            .antMatchers("/api/auth/**").permitAll()
+            .antMatchers("/ws/**").permitAll()
+            .antMatchers(HttpMethod.GET, "/actuator/health").permitAll()
+            .anyRequest().authenticated()
+        )
+            .headers(headers -> headers.frameOptions().disable())   // allow frames for H2 console
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
-
+        
         return http.build();
     }
 

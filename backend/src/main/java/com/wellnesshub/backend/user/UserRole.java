@@ -1,8 +1,7 @@
 package com.wellnesshub.backend.user;
 
 public enum UserRole {
-    PATIENT,
+    ADMIN,
     PRACTITIONER,
-    ADMIN
+    PATIENT
 }
-

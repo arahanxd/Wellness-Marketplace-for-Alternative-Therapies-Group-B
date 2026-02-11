@@ -44,8 +44,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
 
-        // Skip JWT check for public URLs
         String path = request.getServletPath();
+
+        // Skip JWT check for public URLs
         for (String publicUrl : PUBLIC_URLS) {
             if (path.startsWith(publicUrl)) {
                 filterChain.doFilter(request, response);
@@ -53,8 +54,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
         }
 
-        // JWT authentication logic
         String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
@@ -71,15 +72,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             UserEntity userEntity = userRepository.findByEmail(username).orElse(null);
+
             if (userEntity != null) {
-                User principal = new User(userEntity.getEmail(), userEntity.getPasswordHash(),
-                        Arrays.asList(new SimpleGrantedAuthority(userEntity.getRole().name())));
+                // ✅ Important: Add ROLE_ prefix for Spring Security
+                SimpleGrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + userEntity.getRole().name());
+
+                User principal = new User(
+                        userEntity.getEmail(),
+                        userEntity.getPasswordHash(),
+                        Arrays.asList(authority)
+                );
 
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                         principal,
                         null,
                         principal.getAuthorities()
                 );
+
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authToken);
             }

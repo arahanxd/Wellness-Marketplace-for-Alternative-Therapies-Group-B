@@ -1,12 +1,11 @@
 package com.wellnesshub.backend.user;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 @RestController
 @RequestMapping("/api/user")
@@ -19,11 +18,15 @@ public class UserController {
         this.userRepository = userRepository;
     }
 
+    // ===============================
+    // 1️⃣ GET PROFILE (Authenticated)
+    // ===============================
     @GetMapping("/profile")
     public ResponseEntity<Map<String, Object>> getProfile(Authentication auth) {
+
         String email = auth.getName();
         UserEntity user = userRepository.findByEmail(email)
-                .orElseThrow(RuntimeException::new);
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
         Map<String, Object> profile = new HashMap<>();
         profile.put("id", user.getId());
@@ -41,25 +44,15 @@ public class UserController {
         return ResponseEntity.ok(profile);
     }
 
-    @PostMapping("/verify-practitioner/{id}")
-    public ResponseEntity<String> verifyPractitioner(@PathVariable Long id) {
-        UserEntity user = userRepository.findById(id)
-                .orElseThrow(RuntimeException::new);
-
-        if (user.getRole() == UserRole.PRACTITIONER) {
-            user.setVerificationStatus("VERIFIED");
-            userRepository.save(user);
-            return ResponseEntity.ok("Practitioner verified");
-        }
-
-        return ResponseEntity.badRequest().body("Not a practitioner");
-    }
-
+    // ===============================
+    // 2️⃣ DASHBOARD (Role Based)
+    // ===============================
     @GetMapping("/dashboard")
     public ResponseEntity<Map<String, Object>> getDashboard(Authentication auth) {
+
         String email = auth.getName();
         UserEntity user = userRepository.findByEmail(email)
-                .orElseThrow(RuntimeException::new);
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
         Map<String, Object> dashboard = new HashMap<>();
 
@@ -73,11 +66,68 @@ public class UserController {
         if (user.getRole() == UserRole.PATIENT) {
             dashboard.put("sessionHistory", new ArrayList<>());
             dashboard.put("productOrders", new ArrayList<>());
-        } else if (user.getRole() == UserRole.PRACTITIONER) {
+        } 
+        else if (user.getRole() == UserRole.PRACTITIONER) {
             dashboard.put("specialization", user.getSpecialization());
             dashboard.put("verificationStatus", user.getVerificationStatus());
         }
 
         return ResponseEntity.ok(dashboard);
+    }
+
+    // ===============================
+    // 3️⃣ ADMIN VERIFY PRACTITIONER
+    // ===============================
+    @PutMapping("/admin/verify/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<String> verifyPractitioner(@PathVariable Long id) {
+
+        UserEntity user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (user.getRole() != UserRole.PRACTITIONER) {
+            return ResponseEntity.badRequest().body("User is not a practitioner");
+        }
+
+        user.setVerificationStatus("APPROVED");
+        userRepository.save(user);
+
+        return ResponseEntity.ok("Practitioner approved successfully");
+    }
+
+    // ===============================
+    // 4️⃣ ADMIN REJECT PRACTITIONER
+    // ===============================
+    @PutMapping("/admin/reject/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<String> rejectPractitioner(@PathVariable Long id) {
+
+        UserEntity user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (user.getRole() != UserRole.PRACTITIONER) {
+            return ResponseEntity.badRequest().body("User is not a practitioner");
+        }
+
+        user.setVerificationStatus("REJECTED");
+        userRepository.save(user);
+
+        return ResponseEntity.ok("Practitioner rejected successfully");
+    }
+
+    // ===============================
+    // 5️⃣ GET ALL APPROVED PRACTITIONERS (Public)
+    // ===============================
+    @GetMapping("/practitioners")
+    public ResponseEntity<List<UserEntity>> getApprovedPractitioners() {
+
+        List<UserEntity> practitioners = userRepository.findAll()
+                .stream()
+                .filter(user ->
+                        user.getRole() == UserRole.PRACTITIONER &&
+                        "APPROVED".equals(user.getVerificationStatus()))
+                .collect(java.util.stream.Collectors.toList());
+
+        return ResponseEntity.ok(practitioners);
     }
 }
