@@ -50,35 +50,91 @@ public class PractitionerProfileEntity {
     }
 
     // Getters and Setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public Long getId() {
+        return id;
+    }
 
-    public UserEntity getUser() { return user; }
-    public void setUser(UserEntity user) { this.user = user; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public String getSpecialization() { return specialization; }
-    public void setSpecialization(String specialization) { this.specialization = specialization; }
+    public UserEntity getUser() {
+        return user;
+    }
 
-    public String getQualification() { return qualification; }
-    public void setQualification(String qualification) { this.qualification = qualification; }
+    public void setUser(UserEntity user) {
+        this.user = user;
+    }
 
-    public Integer getExperienceYears() { return experienceYears; }
-    public void setExperienceYears(Integer experienceYears) { this.experienceYears = experienceYears; }
+    public String getSpecialization() {
+        return specialization;
+    }
 
-    public String getLicenseNumber() { return licenseNumber; }
-    public void setLicenseNumber(String licenseNumber) { this.licenseNumber = licenseNumber; }
+    public void setSpecialization(String specialization) {
+        this.specialization = specialization;
+    }
 
-    public String getClinicName() { return clinicName; }
-    public void setClinicName(String clinicName) { this.clinicName = clinicName; }
+    public String getQualification() {
+        return qualification;
+    }
 
-    public Double getConsultationFee() { return consultationFee; }
-    public void setConsultationFee(Double consultationFee) { this.consultationFee = consultationFee; }
+    public void setQualification(String qualification) {
+        this.qualification = qualification;
+    }
 
-    public VerificationStatus getVerificationStatus() { return verificationStatus; }
-    public void setVerificationStatus(VerificationStatus verificationStatus) { this.verificationStatus = verificationStatus; }
+    public Integer getExperienceYears() {
+        return experienceYears;
+    }
 
-    public String getDegreeFilePath() { return degreeFilePath; }
-    public void setDegreeFilePath(String degreeFilePath) { this.degreeFilePath = degreeFilePath; }
+    public void setExperienceYears(Integer experienceYears) {
+        this.experienceYears = experienceYears;
+    }
 
-    public java.sql.Timestamp getCreatedAt() { return createdAt; }
+    public String getLicenseNumber() {
+        return licenseNumber;
+    }
+
+    public void setLicenseNumber(String licenseNumber) {
+        this.licenseNumber = licenseNumber;
+    }
+
+    public String getClinicName() {
+        return clinicName;
+    }
+
+    public void setClinicName(String clinicName) {
+        this.clinicName = clinicName;
+    }
+
+    public Double getConsultationFee() {
+        return consultationFee;
+    }
+
+    public void setConsultationFee(Double consultationFee) {
+        this.consultationFee = consultationFee;
+    }
+
+    public VerificationStatus getVerificationStatus() {
+        return verificationStatus;
+    }
+
+    public void setVerificationStatus(VerificationStatus verificationStatus) {
+        this.verificationStatus = verificationStatus;
+    }
+
+    public String getDegreeFilePath() {
+        return degreeFilePath;
+    }
+
+    public void setDegreeFilePath(String degreeFilePath) {
+        this.degreeFilePath = degreeFilePath;
+    }
+
+    public java.sql.Timestamp getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(java.sql.Timestamp createdAt) {
+        this.createdAt = createdAt;
+    }
 }

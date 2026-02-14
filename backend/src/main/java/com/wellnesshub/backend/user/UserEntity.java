@@ -1,15 +1,16 @@
 package com.wellnesshub.backend.user;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Table;
-import jakarta.persistence.Id;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Column;
+import jakarta.persistence.*;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+
+import java.util.Collection;
+import java.util.List;
 
 @Entity
 @Table(name = "users")
-public class UserEntity {
+public class UserEntity implements UserDetails {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -27,45 +28,51 @@ public class UserEntity {
     @Column(nullable = false)
     private String role;
 
-    // ===== GETTERS & SETTERS =====
+    @Column(nullable = true)
+    private String city;
 
-    public Long getId() {
-        return id;
+    @Column(nullable = true)
+    private String country;
+
+    @Column(name = "is_active", nullable = false)
+    private Boolean isActive = true;
+
+    // ===== Getters and Setters =====
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
+    public String getPassword() { return password; }
+    public void setPassword(String password) { this.password = password; }
+    public String getRole() { return role; }
+    public void setRole(String role) { this.role = role; }
+    public String getCity() { return city; }
+    public void setCity(String city) { this.city = city; }
+    public String getCountry() { return country; }
+    public void setCountry(String country) { this.country = country; }
+    public Boolean getIsActive() { return isActive; }
+    public void setIsActive(Boolean isActive) { this.isActive = isActive; }
+
+    // ===== UserDetails implementation =====
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return List.of(new SimpleGrantedAuthority(role));
     }
 
-    public String getName() {
-        return name;
-    }
+    @Override
+    public String getUsername() { return email; }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
+    @Override
+    public boolean isAccountNonExpired() { return true; }
 
-    public void setName(String name) {
-        this.name = name;
-    }
+    @Override
+    public boolean isAccountNonLocked() { return true; }
 
-    public String getEmail() {
-        return email;
-    }
+    @Override
+    public boolean isCredentialsNonExpired() { return true; }
 
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
-    }
-
-    public String getRole() {
-        return role;
-    }
-
-    public void setRole(String role) {
-        this.role = role;
-    }
+    @Override
+    public boolean isEnabled() { return isActive; }
 }
