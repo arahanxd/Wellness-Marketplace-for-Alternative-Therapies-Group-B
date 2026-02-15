@@ -40,6 +40,7 @@ export function RegisterPage() {
     setLoading(true)
     try {
       const response = await api.register(formData)
+
       localStorage.setItem('accessToken', response.accessToken)
       localStorage.setItem('refreshToken', response.refreshToken)
       if (formData.role === 'PRACTITIONER') {
