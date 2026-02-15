@@ -6,12 +6,10 @@ import com.wellnesshub.backend.user.UserRepository;
 import com.wellnesshub.backend.practitioner.PractitionerProfileEntity;
 import com.wellnesshub.backend.practitioner.PractitionerProfileRepository;
 import org.springframework.http.ResponseEntity;
-
 import org.springframework.security.crypto.password.PasswordEncoder;
-
-
 import org.springframework.web.bind.annotation.*;
 
+import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -25,55 +23,45 @@ public class AuthController {
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
 
-
-
     public AuthController(
             UserRepository userRepository,
             PractitionerProfileRepository practitionerProfileRepository,
             JwtService jwtService,
-             PasswordEncoder passwordEncoder
-) {
+            PasswordEncoder passwordEncoder
+    ) {
         this.userRepository = userRepository;
         this.practitionerProfileRepository = practitionerProfileRepository;
         this.jwtService = jwtService;
         this.passwordEncoder = passwordEncoder;
     }
 
+    // ================= REGISTER =================
     @PostMapping("/register")
     public ResponseEntity<Map<String, Object>> register(@RequestBody Map<String, String> request) {
         try {
-            System.out.println("=== Registration Attempt ===");
-            System.out.println("Request payload: " + request);
-
             String email = request.get("email");
             String password = request.get("password");
-            String name = request.get("name");
-            if (name == null || name.isEmpty()) {
-                name = request.get("fullName");
-            }
+            String name = request.get("fullName");
             String role = request.get("role");
             String city = request.get("city");
             String country = request.get("country");
             String specialization = request.get("specialization");
 
-            System.out.println("Checking required fields...");
             if (email == null || password == null || name == null || role == null) {
-                System.err.println("Missing fields: " + request);
-                Map<String, Object> error = new HashMap<>();
-                error.put("success", false);
-                error.put("message", "Missing required fields");
-                return ResponseEntity.badRequest().body(error);
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", "Missing required fields"
+                ));
             }
 
             if (userRepository.findByEmail(email).isPresent()) {
-                System.err.println("Email already exists: " + email);
-                Map<String, Object> error = new HashMap<>();
-                error.put("success", false);
-                error.put("message", "Email already exists");
-                return ResponseEntity.badRequest().body(error);
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", "Email already exists"
+                ));
             }
 
-            // ===== Create new user and set isActive =====
+            // Create user
             UserEntity user = new UserEntity();
             user.setName(name);
             user.setEmail(email);
@@ -81,49 +69,50 @@ public class AuthController {
             user.setRole(role);
             user.setCity(city);
             user.setCountry(country);
-            user.setIsActive(true); // <-- fix for MySQL error
+            user.setIsActive(true);
 
             UserEntity savedUser = userRepository.save(user);
-            System.out.println("User saved: " + savedUser);
 
-            // If user is a Practitioner, create a profile
+            // If Practitioner → create profile
             if ("PRACTITIONER".equalsIgnoreCase(role)) {
-                System.out.println("Creating practitioner profile for: " + savedUser.getEmail());
                 PractitionerProfileEntity profile = new PractitionerProfileEntity();
                 profile.setUser(savedUser);
                 profile.setSpecialization(specialization != null ? specialization : "General");
                 profile.setClinicName(city != null ? city : "Default Clinic");
-                profile.setVerificationStatus(PractitionerProfileEntity.VerificationStatus.PENDING);
-                profile.setCreatedAt(new java.sql.Timestamp(System.currentTimeMillis()));
+                profile.setVerificationStatus(
+                        PractitionerProfileEntity.VerificationStatus.PENDING
+                );
+                profile.setCreatedAt(new Timestamp(System.currentTimeMillis()));
                 practitionerProfileRepository.save(profile);
-                System.out.println("Practitioner profile saved: " + profile);
             }
 
-            // Generate JWT token
+            // Generate JWT
             Map<String, Object> claims = new HashMap<>();
-            claims.put("email", email);
-            claims.put("role", role);
+            claims.put("email", savedUser.getEmail());
+            claims.put("role", savedUser.getRole());
 
-            String token = jwtService.generateToken(claims, email);
+            String token = jwtService.generateToken(claims, savedUser.getEmail());
 
+            // ✅ MATCHES FRONTEND
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "Registration successful");
-            response.put("token", token);
-            response.put("role", role);
+            response.put("accessToken", token);
+            response.put("refreshToken", "");
+            response.put("role", savedUser.getRole());
 
-            System.out.println("Registration successful for: " + email);
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
             e.printStackTrace();
-            Map<String, Object> error = new HashMap<>();
-            error.put("success", false);
-            error.put("message", "Registration failed. Check backend logs.");
-            return ResponseEntity.internalServerError().body(error);
+            return ResponseEntity.internalServerError().body(Map.of(
+                    "success", false,
+                    "message", "Registration failed"
+            ));
         }
     }
 
+    // ================= LOGIN =================
     @PostMapping("/login")
     public ResponseEntity<Map<String, Object>> login(@RequestBody Map<String, String> request) {
         try {
@@ -131,19 +120,19 @@ public class AuthController {
             String password = request.get("password");
 
             if (email == null || password == null) {
-                Map<String, Object> error = new HashMap<>();
-                error.put("success", false);
-                error.put("message", "Missing email or password");
-                return ResponseEntity.badRequest().body(error);
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", "Missing email or password"
+                ));
             }
 
             UserEntity user = userRepository.findByEmail(email).orElse(null);
 
             if (user == null || !passwordEncoder.matches(password, user.getPassword())) {
-                Map<String, Object> error = new HashMap<>();
-                error.put("success", false);
-                error.put("message", "Invalid credentials");
-                return ResponseEntity.badRequest().body(error);
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", "Invalid credentials"
+                ));
             }
 
             Map<String, Object> claims = new HashMap<>();
@@ -152,20 +141,22 @@ public class AuthController {
 
             String token = jwtService.generateToken(claims, user.getEmail());
 
+            // ✅ MATCHES FRONTEND
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "Login successful");
-            response.put("token", token);
+            response.put("accessToken", token);
+            response.put("refreshToken", "");
             response.put("role", user.getRole());
 
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
             e.printStackTrace();
-            Map<String, Object> error = new HashMap<>();
-            error.put("success", false);
-            error.put("message", "Login failed. Check backend logs.");
-            return ResponseEntity.internalServerError().body(error);
+            return ResponseEntity.internalServerError().body(Map.of(
+                    "success", false,
+                    "message", "Login failed"
+            ));
         }
     }
 }
