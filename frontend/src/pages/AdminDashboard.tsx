@@ -74,15 +74,15 @@ export function AdminDashboard() {
                 </p>
 
                 {p.degreeFile && (
-                  <a
-                    href={`http://localhost:8080/${p.degreeFile}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="block mt-2 text-xs text-blue-600 underline"
-                  >
-                    View Degree File
-                  </a>
-                )}
+  <a
+    href={`http://localhost:8080/api/user/degree/${p.id}`}
+    target="_blank"
+    rel="noreferrer"
+    className="block mt-2 text-xs text-blue-600 underline"
+  >
+    View Degree File
+  </a>
+)}
               </div>
 
               <div className="flex gap-2">
