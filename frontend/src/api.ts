@@ -1,3 +1,6 @@
+import axios from 'axios';
+import type { InternalAxiosRequestConfig } from 'axios';
+
 const API_BASE = 'http://localhost:8080/api';
 
 export interface LoginRequest {
@@ -17,7 +20,6 @@ export interface RegisterRequest {
 
 export interface AuthResponse {
   accessToken: string;
-  refreshToken?: string;
   role: string;
 }
 
@@ -32,80 +34,43 @@ export interface Profile {
   verificationStatus?: string;
 }
 
-export class ApiService {
-  get baseURL() {
-    return API_BASE;
-  }
+const apiClient = axios.create({
+  baseURL: API_BASE,
+  withCredentials: true,
+});
 
-  private getAuthHeaders(): Record<string, string> {
+apiClient.interceptors.request.use(
+  (config: InternalAxiosRequestConfig) => {
     const token = localStorage.getItem('accessToken');
-    return token ? { Authorization: `Bearer ${token}` } : {};
+    if (token && config.headers) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
   }
+);
 
+export const api = {
   async login(data: LoginRequest): Promise<AuthResponse> {
-    const response = await fetch(`${API_BASE}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) throw new Error('Login failed');
-    return response.json();
-  }
+    const response = await apiClient.post('/auth/login', data);
+    return response.data;
+  },
 
   async register(data: RegisterRequest): Promise<AuthResponse> {
-    const response = await fetch(`${API_BASE}/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(text || 'Registration failed');
-    }
-    return response.json();
-  }
+    const response = await apiClient.post('/auth/register', data);
+    return response.data;
+  },
 
   async getProfile(): Promise<Profile> {
-    const token = localStorage.getItem('accessToken');
-    if (!token) throw new Error('No access token found');
+    const response = await apiClient.get('/user/profile');
+    return response.data;
+  },
 
-    const response = await fetch(`${API_BASE}/user/profile`, {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      credentials: 'include', // include cookies
-    });
-
-    if (!response.ok) throw new Error('Failed to fetch profile');
-    return response.json();
-  }
-
-  // --- FIXED uploadDegree ---
-  async uploadDegree(file: File, userId: number): Promise<any> {
+  async uploadDegree(file: File, userId: number) {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('userId', userId.toString());
 
-    const token = localStorage.getItem('accessToken');
-
-    const response = await fetch(`${API_BASE}/user/uploadDegree`, {
-      method: 'POST',
-      headers: {
-        Authorization: token ? `Bearer ${token}` : '',
-        // Do NOT set Content-Type; browser sets boundary automatically
-      },
-      body: formData,
-      credentials: 'include', // important for CORS with credentials
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(text || 'Failed to upload degree');
-    }
-
-    return response.json(); // { message: 'Degree uploaded' }
-  }
-}
-
-export const api = new ApiService();
+    const response = await apiClient.post('/user/uploadDegree', formData);
+    return response.data;
+  },
+};
