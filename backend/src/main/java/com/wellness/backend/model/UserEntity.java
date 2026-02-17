@@ -28,15 +28,13 @@ public class UserEntity {
     @Column(nullable = false)
     private String role; // CLIENT / PROVIDER / ADMIN
 
-    @Column(nullable = true)
     private String specialization;
-
-    @Column(nullable = true)
     private String city;
-
-    @Column(nullable = true)
     private String country;
 
-    @Column(nullable = true)
-    private String degreeFile; // For practitioner degree uploads
+    @Column(name = "degree_file")
+    private String degreeFile;
+
+    @Column(name = "verification_status")
+    private String verificationStatus = "PENDING";
 }

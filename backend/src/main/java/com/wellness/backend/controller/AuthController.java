@@ -1,5 +1,6 @@
 package com.wellness.backend.controller;
 
+import com.wellness.backend.dto.AuthenticationResponse;
 import com.wellness.backend.dto.LoginRequest;
 import com.wellness.backend.dto.RegisterRequest;
 import com.wellness.backend.model.UserEntity;
@@ -28,7 +29,7 @@ public class AuthController {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-    // 🔥 THIS WILL RESET ADMIN PASSWORD ON STARTUP (ONE TIME)
+    // 🔥 Reset admin password on startup
     @Bean
     CommandLineRunner resetAdminPassword() {
         return args -> {
@@ -62,7 +63,10 @@ public class AuthController {
         userRepository.save(user);
 
         String token = jwtUtil.generateToken(user.getEmail(), user.getRole());
-        return ResponseEntity.ok(Collections.singletonMap("accessToken", token));
+
+        return ResponseEntity.ok(
+                new AuthenticationResponse(token, user.getRole())
+        );
     }
 
     @PostMapping("/login")
@@ -75,7 +79,10 @@ public class AuthController {
 
             if (passwordEncoder.matches(request.getPassword(), user.getPassword())) {
                 String token = jwtUtil.generateToken(user.getEmail(), user.getRole());
-                return ResponseEntity.ok(Collections.singletonMap("accessToken", token));
+
+                return ResponseEntity.ok(
+                        new AuthenticationResponse(token, user.getRole())
+                );
             }
         }
 
