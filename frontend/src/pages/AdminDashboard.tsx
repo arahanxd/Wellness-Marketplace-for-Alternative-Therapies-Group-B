@@ -7,82 +7,54 @@ export function AdminDashboard() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    api
-      .getPractitioners()
-      .then((data) => {
-        setPractitioners(data)
-        setLoading(false)
-      })
+    api.getPractitioners()
+      .then((data) => { setPractitioners(data); setLoading(false) })
       .catch(console.error)
   }, [])
 
   const approve = async (id: number) => {
     await api.approvePractitioner(id)
     setPractitioners((prev) =>
-      prev.map((p) =>
-        p.id === id ? { ...p, verificationStatus: 'APPROVED' } : p
-      )
+      prev.map((p) => (p.id === id ? { ...p, verificationStatus: 'APPROVED' } : p))
     )
   }
 
   const reject = async (id: number) => {
     await api.rejectPractitioner(id)
     setPractitioners((prev) =>
-      prev.map((p) =>
-        p.id === id ? { ...p, verificationStatus: 'REJECTED' } : p
-      )
+      prev.map((p) => (p.id === id ? { ...p, verificationStatus: 'REJECTED' } : p))
     )
   }
 
   return (
-    <DashboardLayout
-      sidebarItems={[
-        { label: 'Practitioner Verification', active: true },
-      ]}
-    >
+    <DashboardLayout sidebarItems={[{ label: 'Practitioner Verification', active: true }]}>
       <div className="space-y-4">
-
-        <h1 className="text-xl font-semibold text-slate-900">
-          Practitioner Verification Panel
-        </h1>
+        <h1 className="text-xl font-semibold text-slate-900">Practitioner Verification Panel</h1>
 
         {loading && <p>Loading practitioners...</p>}
-
-        {!loading && practitioners.length === 0 && (
-          <p>No practitioners found.</p>
-        )}
+        {!loading && practitioners.length === 0 && <p>No practitioners found.</p>}
 
         {practitioners.map((p) => (
-          <div
-            key={p.id}
-            className="rounded-2xl bg-white p-4 shadow-soft-card"
-          >
+          <div key={p.id} className="rounded-2xl bg-white p-4 shadow-soft-card">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-sm font-semibold text-slate-900">
-                  {p.name}
-                </p>
+                <p className="text-sm font-semibold text-slate-900">{p.name}</p>
                 <p className="text-xs text-slate-500">{p.email}</p>
-                <p className="text-xs text-slate-600 mt-1">
-                  {p.city} {p.country && `• ${p.country}`}
-                </p>
+                <p className="text-xs text-slate-600 mt-1">{p.city} {p.country && `• ${p.country}`}</p>
                 <p className="text-xs mt-2">
-                  Status:{' '}
-                  <span className="font-semibold">
-                    {p.verificationStatus || 'PENDING'}
-                  </span>
+                  Status: <span className="font-semibold">{p.verificationStatus || 'PENDING'}</span>
                 </p>
 
                 {p.degreeFile && (
-  <a
-    href={`http://localhost:8080/api/user/degree/${p.id}`}
-    target="_blank"
-    rel="noreferrer"
-    className="block mt-2 text-xs text-blue-600 underline"
-  >
-    View Degree File
-  </a>
-)}
+                  <a
+                    href={`http://localhost:8080/api/degree/${p.id}`} // ✅ correct endpoint
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block mt-2 text-xs text-blue-600 underline"
+                  >
+                    View Degree File
+                  </a>
+                )}
               </div>
 
               <div className="flex gap-2">

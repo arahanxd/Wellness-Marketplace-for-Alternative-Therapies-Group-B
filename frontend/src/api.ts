@@ -3,11 +3,7 @@ import type { InternalAxiosRequestConfig } from 'axios'
 
 const API_BASE = 'http://localhost:8080/api'
 
-export interface LoginRequest {
-  email: string
-  password: string
-}
-
+export interface LoginRequest { email: string; password: string }
 export interface RegisterRequest {
   name: string
   email: string
@@ -17,12 +13,7 @@ export interface RegisterRequest {
   city?: string
   country?: string
 }
-
-export interface AuthResponse {
-  accessToken: string
-  role: string
-}
-
+export interface AuthResponse { accessToken: string; role: string }
 export interface Profile {
   id: number
   name: string
@@ -35,17 +26,12 @@ export interface Profile {
   degreeFile?: string
 }
 
-const apiClient = axios.create({
-  baseURL: API_BASE,
-  withCredentials: true,
-})
+const apiClient = axios.create({ baseURL: API_BASE, withCredentials: true })
 
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = localStorage.getItem('accessToken')
-    if (token && config.headers) {
-      config.headers['Authorization'] = `Bearer ${token}`
-    }
+    if (token && config.headers) config.headers['Authorization'] = `Bearer ${token}`
     return config
   },
   (error) => Promise.reject(error)
@@ -81,7 +67,6 @@ export const api = {
   },
 
   async updateProfile(data: Partial<Profile>): Promise<Profile> {
-    // userId is not needed because backend uses logged-in user
     const response = await apiClient.put('/user/profile', data)
     return response.data
   },
@@ -90,7 +75,6 @@ export const api = {
     const formData = new FormData()
     formData.append('file', file)
     formData.append('userId', userId.toString())
-
     const response = await apiClient.post('/degree/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
@@ -102,11 +86,6 @@ export const api = {
     return response.data
   },
 
-  async approvePractitioner(id: number) {
-    await apiClient.put(`/admin/approve/${id}`)
-  },
-
-  async rejectPractitioner(id: number) {
-    await apiClient.put(`/admin/reject/${id}`)
-  },
+  async approvePractitioner(id: number) { await apiClient.put(`/admin/approve/${id}`) },
+  async rejectPractitioner(id: number) { await apiClient.put(`/admin/reject/${id}`) },
 }

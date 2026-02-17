@@ -25,7 +25,9 @@ public class DegreeController {
 
     private final UserRepository userRepository;
 
-    private final Path uploadDir = Paths.get("C:\\Career\\Internship\\Virtual Internship\\Infosys\\Project\\Image Wellness Marketplace for Alternative Therapies\\backend\\uploads\\degrees");
+    private final Path uploadDir = Paths.get(
+        "C:\\Career\\Internship\\Virtual Internship\\Infosys\\Project\\Image Wellness Marketplace for Alternative Therapies\\backend\\uploads\\degrees"
+    );
 
     // 🔹 Upload degree
     @PostMapping("/upload")
@@ -41,7 +43,8 @@ public class DegreeController {
             Path path = uploadDir.resolve(fileName);
             Files.write(path, file.getBytes());
 
-            user.setDegreeFile(path.toString()); // absolute path
+            // Save **relative path** for frontend access
+            user.setDegreeFile("uploads/degrees/" + fileName);
             user.setVerificationStatus("PENDING");
             userRepository.save(user);
 
@@ -62,6 +65,11 @@ public class DegreeController {
             if (user.getDegreeFile() == null) return ResponseEntity.notFound().build();
 
             Path filePath = Paths.get(user.getDegreeFile());
+            if (!filePath.isAbsolute()) {
+                // Resolve relative paths to the uploadDir
+                filePath = uploadDir.resolve(filePath.getFileName());
+            }
+
             Resource resource = new UrlResource(filePath.toUri());
 
             if (!resource.exists() || !resource.isReadable()) return ResponseEntity.notFound().build();
@@ -69,7 +77,7 @@ public class DegreeController {
             return ResponseEntity.ok()
                     .contentType(MediaType.APPLICATION_PDF)
                     .header(HttpHeaders.CONTENT_DISPOSITION,
-                            "inline; filename=\"" + resource.getFilename() + "\"") // ✅ fixed
+                            "inline; filename=\"" + resource.getFilename() + "\"")
                     .body(resource);
 
         } catch (MalformedURLException e) {
