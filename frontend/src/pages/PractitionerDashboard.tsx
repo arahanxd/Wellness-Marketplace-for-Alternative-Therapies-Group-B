@@ -1,145 +1,150 @@
-import type { ChangeEvent, FormEvent } from 'react'
-import { useEffect, useState } from 'react'
-import { DashboardLayout } from '../components/DashboardLayout'
-import { api, type Profile } from '../api'
+import { useEffect, useState } from 'react';
+import { api } from '../api';
+import type { Profile } from '../api';
+import { DashboardLayout } from '../components/DashboardLayout';
 
 export function PractitionerDashboard() {
-  const [profile, setProfile] = useState<Profile | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [formData, setFormData] = useState({
-    name: '',
-    city: '',
-    country: '',
-    specialization: '',
-  })
-  const [file, setFile] = useState<File | null>(null)
-  const [message, setMessage] = useState('')
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [degreeFile, setDegreeFile] = useState<File | null>(null);
+  const [message, setMessage] = useState('');
+
+  const sidebarItems = [
+    { label: 'Dashboard', path: '/practitioner' },
+    { label: 'Profile', path: '/practitioner/profile' },
+    { label: 'Upload Degree', path: '/practitioner/degree' },
+  ];
 
   useEffect(() => {
-    api
-      .getProfile()
-      .then((data) => {
-        setProfile(data)
-        setFormData({
-          name: data.name,
-          city: data.city || '',
-          country: data.country || '',
-          specialization: data.specialization || '',
-        })
-        setLoading(false)
-      })
-      .catch((err) => {
-        console.error(err)
-        setLoading(false)
-      })
-  }, [])
+    fetchProfile();
+  }, []);
 
-  if (loading) return <div className="p-6">Loading...</div>
-  if (!profile) return <div className="p-6">Unable to load profile.</div>
-
-  const status = profile.verificationStatus || 'PENDING'
-
-  const handleChange = (e: ChangeEvent<HTMLInputElement>) =>
-    setFormData({ ...formData, [e.target.name]: e.target.value })
-
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) setFile(e.target.files[0])
-  }
-
-  const handleSave = async (e: FormEvent) => {
-    e.preventDefault()
+  const fetchProfile = async () => {
     try {
-      await api.updateUser(profile.id, formData)
-
-      if (file) {
-        await api.uploadDegree(file, profile.id)
-        setMessage('Profile and degree uploaded successfully!')
-      } else {
-        setMessage('Profile updated successfully!')
-      }
-
-      const updatedProfile = await api.getProfile()
-      setProfile(updatedProfile)
-      setFile(null)
+      const res = await api.getProfile();
+      setProfile(res);
     } catch (err) {
-      console.error(err)
-      setMessage('Error updating profile')
+      console.error(err);
     }
-  }
+  };
+
+  const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!profile) return;
+    const { name, value } = e.target;
+    setProfile({ ...profile, [name]: value });
+  };
+
+  const saveProfile = async () => {
+    if (!profile) return;
+    setLoading(true);
+    try {
+      await api.updateProfile(profile);
+      setMessage('Profile updated successfully');
+    } catch (err) {
+      console.error(err);
+      setMessage('Failed to update profile');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDegreeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setDegreeFile(e.target.files[0]);
+    }
+  };
+
+  const uploadDegree = async () => {
+    if (!degreeFile || !profile) return;
+    setLoading(true);
+    try {
+      await api.uploadDegree(degreeFile, profile.id);
+      setMessage('Degree uploaded successfully');
+      fetchProfile();
+    } catch (err) {
+      console.error(err);
+      setMessage('Failed to upload degree');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!profile) return <div>Loading...</div>;
 
   return (
-    <DashboardLayout sidebarItems={[
-      { label: 'Dashboard', active: true },
-      { label: 'Profile & Verification', to: '#' },
-      { label: 'Session Requests', to: '#' },
-      { label: 'Calendar', to: '#' },
-      { label: 'Community Q&A', to: '#' },
-      { label: 'Reviews', to: '#' },
-    ]}>
-      <div className="grid gap-5 lg:grid-cols-[2fr,1.1fr]">
-        <section className="space-y-5">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-2xl bg-white p-4 shadow-soft-card">
-              <p className="text-xs font-semibold uppercase text-brand-600">Pending Sessions</p>
-              <p className="mt-3 text-3xl font-semibold text-slate-900">3</p>
-              <p className="mt-1 text-xs text-slate-600">New requests awaiting your response.</p>
-            </div>
-            <div className="rounded-2xl bg-gradient-to-br from-amber-50 to-emerald-50 p-4 shadow-soft-card">
-              <p className="text-xs font-semibold uppercase text-amber-700">Verification Status</p>
-              <p className="mt-2 text-sm font-semibold text-slate-900">{status}</p>
-              <p className="mt-1 text-xs text-slate-600">
-                {status === 'APPROVED' && 'Your account is verified and visible to clients.'}
-                {status === 'PENDING' && 'Your documents are under review by admin.'}
-                {status === 'REJECTED' && 'Your verification was rejected. Please re-upload valid documents.'}
-              </p>
-              {profile.degreeFile && (
-                <a href={`http://localhost:8080/${profile.degreeFile}`} target="_blank" rel="noreferrer" className="block mt-3 text-xs text-blue-600 underline">
-                  View Uploaded Degree
-                </a>
-              )}
-            </div>
-          </div>
+    <DashboardLayout sidebarItems={sidebarItems}>
+      <div className="p-4">
+        <h2 className="text-xl font-bold mb-4">Practitioner Dashboard</h2>
 
-          <section className="rounded-2xl bg-white p-4 shadow-soft-card">
-            <h2 className="text-sm font-semibold mb-3">Edit Profile</h2>
-            {message && <p className="mb-2 text-xs text-green-600">{message}</p>}
-            <form className="space-y-3" onSubmit={handleSave}>
-              {['name', 'city', 'country', 'specialization'].map((field) => (
-                <div key={field}>
-                  <label className="text-xs font-semibold">{field.charAt(0).toUpperCase() + field.slice(1)}</label>
-                  <input
-                    type="text"
-                    name={field}
-                    value={formData[field as keyof typeof formData]}
-                    onChange={handleChange}
-                    className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
-                    required={field === 'name'}
-                  />
-                </div>
-              ))}
-              {status !== 'APPROVED' && (
-                <div>
-                  <label className="text-xs font-semibold">Upload Degree</label>
-                  <input type="file" onChange={handleFileChange} className="mt-1 w-full text-sm"/>
-                </div>
-              )}
-              <button type="submit" className="rounded-full bg-brand-600 px-4 py-2 text-sm font-semibold text-white">Save Changes</button>
-            </form>
-          </section>
-        </section>
+        <div className="mb-4">
+          <label className="block">Name:</label>
+          <input
+            type="text"
+            name="name"
+            value={profile.name}
+            onChange={handleProfileChange}
+            className="border p-2 w-full"
+          />
+        </div>
 
-        <aside className="space-y-4">
-          <section className="rounded-2xl bg-white p-4 shadow-soft-card">
-            <h2 className="text-sm font-semibold text-slate-900">Your Info</h2>
-            <div className="mt-3 text-xs text-slate-700 space-y-2">
-              {['name', 'email', 'city', 'country', 'specialization'].map((key) => (
-                <p key={key}><strong>{key.charAt(0).toUpperCase() + key.slice(1)}:</strong> {profile[key as keyof Profile] || 'N/A'}</p>
-              ))}
-              <p><strong>Status:</strong> {status}</p>
-            </div>
-          </section>
-        </aside>
+        <div className="mb-4">
+          <label className="block">City:</label>
+          <input
+            type="text"
+            name="city"
+            value={profile.city || ''}
+            onChange={handleProfileChange}
+            className="border p-2 w-full"
+          />
+        </div>
+
+        <div className="mb-4">
+          <label className="block">Country:</label>
+          <input
+            type="text"
+            name="country"
+            value={profile.country || ''}
+            onChange={handleProfileChange}
+            className="border p-2 w-full"
+          />
+        </div>
+
+        <div className="mb-4">
+          <label className="block">Specialization:</label>
+          <input
+            type="text"
+            name="specialization"
+            value={profile.specialization || ''}
+            onChange={handleProfileChange}
+            className="border p-2 w-full"
+          />
+        </div>
+
+        <button
+          onClick={saveProfile}
+          disabled={loading}
+          className="bg-blue-500 text-white px-4 py-2 rounded"
+        >
+          {loading ? 'Saving...' : 'Save Profile'}
+        </button>
+
+        <hr className="my-6" />
+
+        <div className="mb-4">
+          <label className="block">Upload Degree (PDF):</label>
+          <input type="file" accept="application/pdf" onChange={handleDegreeChange} />
+        </div>
+
+        <button
+          onClick={uploadDegree}
+          disabled={loading}
+          className="bg-green-500 text-white px-4 py-2 rounded"
+        >
+          {loading ? 'Uploading...' : 'Upload Degree'}
+        </button>
+
+        {message && <p className="mt-4 text-sm text-gray-700">{message}</p>}
       </div>
     </DashboardLayout>
-  )
+  );
 }

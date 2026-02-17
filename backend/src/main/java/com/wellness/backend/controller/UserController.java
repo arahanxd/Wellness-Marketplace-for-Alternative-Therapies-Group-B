@@ -2,7 +2,6 @@ package com.wellness.backend.controller;
 
 import com.wellness.backend.model.UserEntity;
 import com.wellness.backend.service.UserService;
-import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -34,11 +33,14 @@ public class UserController {
         Optional<UserEntity> userOpt = userService.getUserByEmail(email);
         if (userOpt.isEmpty()) return ResponseEntity.status(404).build();
         UserEntity user = userOpt.get();
+
+        // Update profile fields
         user.setName(updatedProfile.getName());
         user.setCity(updatedProfile.getCity());
         user.setCountry(updatedProfile.getCountry());
         user.setSpecialization(updatedProfile.getSpecialization());
-        userService.saveUser(user);
+
+        userService.saveUser(user); // Save without triggering login redirect
         return ResponseEntity.ok(user);
     }
 

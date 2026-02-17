@@ -18,7 +18,7 @@ import java.nio.file.Paths;
 import java.util.Collections;
 
 @RestController
-@RequestMapping("/api/degree") // Changed from /api/user
+@RequestMapping("/api/degree")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "http://localhost:5173")
 public class DegreeController {
@@ -27,9 +27,8 @@ public class DegreeController {
 
     private final Path uploadDir = Paths.get("C:\\Career\\Internship\\Virtual Internship\\Infosys\\Project\\Image Wellness Marketplace for Alternative Therapies\\backend\\uploads\\degrees");
 
-
     // 🔹 Upload degree
-    @PostMapping("/upload") // Changed from /uploadDegree
+    @PostMapping("/upload")
     public ResponseEntity<?> uploadDegree(@RequestParam("file") MultipartFile file,
                                           @RequestParam("userId") Long userId) {
         try {
@@ -42,7 +41,7 @@ public class DegreeController {
             Path path = uploadDir.resolve(fileName);
             Files.write(path, file.getBytes());
 
-            user.setDegreeFile("uploads/degrees/" + fileName);
+            user.setDegreeFile(path.toString()); // absolute path
             user.setVerificationStatus("PENDING");
             userRepository.save(user);
 
@@ -69,7 +68,8 @@ public class DegreeController {
 
             return ResponseEntity.ok()
                     .contentType(MediaType.APPLICATION_PDF)
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            "inline; filename=\"" + resource.getFilename() + "\"") // ✅ fixed
                     .body(resource);
 
         } catch (MalformedURLException e) {

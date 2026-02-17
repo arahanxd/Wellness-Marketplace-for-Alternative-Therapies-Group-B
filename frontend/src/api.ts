@@ -80,8 +80,9 @@ export const api = {
     return response.data
   },
 
-  async updateUser(userId: number, data: Partial<Profile>) {
-    const response = await apiClient.put(`/user/profile`, data)
+  async updateProfile(data: Partial<Profile>): Promise<Profile> {
+    // userId is not needed because backend uses logged-in user
+    const response = await apiClient.put('/user/profile', data)
     return response.data
   },
 
@@ -90,7 +91,7 @@ export const api = {
     formData.append('file', file)
     formData.append('userId', userId.toString())
 
-    const response = await apiClient.post('/user/uploadDegree', formData, {
+    const response = await apiClient.post('/degree/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
     return response.data
