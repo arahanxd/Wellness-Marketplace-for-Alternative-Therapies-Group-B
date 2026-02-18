@@ -8,6 +8,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Collections;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -19,62 +21,98 @@ public class AdminController {
     @Autowired
     private com.wellness.backend.service.EmailService emailService;
 
-    // Returns all practitioners (PROVIDERS)
+    // Returns all practitioners (PROVIDERS only)
     @GetMapping("/users")
     public ResponseEntity<List<UserEntity>> getAllPractitioners() {
-        System.out.println("DEBUG: Fetching all practitioners for admin dashboard");
         List<UserEntity> practitioners = userRepository.findByRole("PROVIDER");
-        System.out.println("DEBUG: Found " + practitioners.size() + " practitioners");
         return ResponseEntity.ok(practitioners);
     }
 
-    // New: Returns all users in the system (CLIENT and PROVIDER)
+    // Returns all users in the system (CLIENT and PROVIDER, excluding ADMIN)
     @GetMapping("/all-users")
     public ResponseEntity<List<UserEntity>> getAllSystemUsers() {
-        System.out.println("DEBUG: Fetching all system users");
-        List<UserEntity> users = userRepository.findAll();
-        // Exclude admins from the list if desired, but here we'll return all
+        List<UserEntity> users = userRepository.findAll().stream()
+                .filter(u -> !"ADMIN".equalsIgnoreCase(u.getRole()))
+                .collect(Collectors.toList());
         return ResponseEntity.ok(users);
     }
 
+    // Approve a practitioner (can be called multiple times regardless of current
+    // status)
     @PutMapping("/approve/{id}")
     public ResponseEntity<?> approve(@PathVariable Long id) {
-        System.out.println("DEBUG: Admin approving user ID: " + id);
         UserEntity user = userRepository.findById(id).orElse(null);
         if (user == null) {
-            System.out.println("DEBUG: User not found for approval: " + id);
-            return ResponseEntity.status(org.springframework.http.HttpStatus.NOT_FOUND)
-                    .body(Collections.singletonMap("error", "Practitioner not found"));
+            return ResponseEntity.status(404)
+                    .body(Collections.singletonMap("error", "User not found"));
         }
 
         String oldStatus = user.getVerificationStatus();
         user.setVerificationStatus("APPROVED");
-        user.setEmailVerified(true);
+        user.setVerified(true);
+        user.setAdminComment(null); // Clear any previous rejection comment
         userRepository.save(user);
-        System.out
-                .println("DEBUG: User " + user.getEmail() + " status transitioned from " + oldStatus + " to APPROVED");
+        System.out.println("DEBUG: User " + user.getEmail() + " status: " + oldStatus + " → APPROVED");
 
-        emailService.sendApprovalEmail(user.getEmail());
+        try {
+            emailService.sendApprovalEmail(user.getEmail());
+        } catch (Exception e) {
+            System.out.println("Email send failed: " + e.getMessage());
+        }
         return ResponseEntity.ok(Collections.singletonMap("message", "User approved successfully"));
     }
 
+    // Reject a practitioner with optional comment (can be called multiple times)
     @PutMapping("/reject/{id}")
-    public ResponseEntity<?> reject(@PathVariable Long id) {
-        System.out.println("DEBUG: Admin rejecting user ID: " + id);
+    public ResponseEntity<?> reject(@PathVariable Long id, @RequestBody(required = false) Map<String, String> body) {
         UserEntity user = userRepository.findById(id).orElse(null);
         if (user == null) {
-            System.out.println("DEBUG: User not found for rejection: " + id);
-            return ResponseEntity.status(org.springframework.http.HttpStatus.NOT_FOUND)
-                    .body(Collections.singletonMap("error", "Practitioner not found"));
+            return ResponseEntity.status(404)
+                    .body(Collections.singletonMap("error", "User not found"));
         }
 
         String oldStatus = user.getVerificationStatus();
         user.setVerificationStatus("REJECTED");
-        userRepository.save(user);
-        System.out
-                .println("DEBUG: User " + user.getEmail() + " status transitioned from " + oldStatus + " to REJECTED");
+        user.setVerified(false);
 
-        emailService.sendRejectionEmail(user.getEmail());
+        // Save admin comment if provided
+        if (body != null && body.containsKey("comment") && body.get("comment") != null
+                && !body.get("comment").isBlank()) {
+            user.setAdminComment(body.get("comment"));
+        }
+
+        userRepository.save(user);
+        System.out.println("DEBUG: User " + user.getEmail() + " status: " + oldStatus + " → REJECTED");
+
+        try {
+            emailService.sendRejectionEmail(user.getEmail());
+        } catch (Exception e) {
+            System.out.println("Email send failed: " + e.getMessage());
+        }
         return ResponseEntity.ok(Collections.singletonMap("message", "User rejected successfully"));
+    }
+
+    // Request document reupload from practitioner
+    @PutMapping("/request-reupload/{id}")
+    public ResponseEntity<?> requestReupload(@PathVariable Long id,
+            @RequestBody(required = false) Map<String, String> body) {
+        UserEntity user = userRepository.findById(id).orElse(null);
+        if (user == null) {
+            return ResponseEntity.status(404)
+                    .body(Collections.singletonMap("error", "User not found"));
+        }
+
+        user.setVerificationStatus("REUPLOAD_REQUESTED");
+        user.setVerified(false);
+
+        if (body != null && body.containsKey("comment") && body.get("comment") != null
+                && !body.get("comment").isBlank()) {
+            user.setAdminComment(body.get("comment"));
+        }
+
+        userRepository.save(user);
+        System.out.println("DEBUG: Reupload requested for user " + user.getEmail());
+
+        return ResponseEntity.ok(Collections.singletonMap("message", "Reupload requested successfully"));
     }
 }

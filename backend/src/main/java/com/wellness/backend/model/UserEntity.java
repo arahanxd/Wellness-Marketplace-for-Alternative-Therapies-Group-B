@@ -17,7 +17,7 @@ public class UserEntity {
     private Long id;
 
     @Column(nullable = false)
-    private String name; // Use getName() instead of getFullName()
+    private String name;
 
     @Column(nullable = false, unique = true)
     private String email;
@@ -53,7 +53,9 @@ public class UserEntity {
     @Column(name = "otp_expiry")
     private java.time.LocalDateTime otpExpiry;
 
-    // Optional helper methods (if needed for UserService)
+    @Column(name = "admin_comment", columnDefinition = "TEXT")
+    private String adminComment;
+
     public boolean isVerified() {
         return "VERIFIED".equalsIgnoreCase(this.verificationStatus) ||
                 "APPROVED".equalsIgnoreCase(this.verificationStatus) ||

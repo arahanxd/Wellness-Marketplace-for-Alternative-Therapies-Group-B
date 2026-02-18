@@ -2,8 +2,40 @@ import { useEffect, useState } from 'react';
 import { api, type Profile, type Booking } from '../api/api';
 import { SPECIALIZATIONS } from '../constants/specializations';
 import { DashboardLayout } from '../components/DashboardLayout';
-import { CheckCircle2, XCircle, FileText, Calendar, User, LayoutDashboard, Settings, CloudUpload, ArrowRight, ShieldCheck, Activity, Globe } from 'lucide-react';
+import {
+  CheckCircle2, XCircle, FileText, Calendar, User, LayoutDashboard, Settings,
+  CloudUpload, ArrowRight, ShieldCheck, Activity, Globe, MessageSquare, RefreshCw, AlertCircle
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+
+function VerificationStatusBadge({ status }: { status?: string }) {
+  const s = (status || '').toUpperCase()
+  if (s === 'APPROVED') return (
+    <span className="flex items-center gap-2 bg-emerald-50 text-emerald-700 px-6 py-3 rounded-2xl text-sm font-black border border-emerald-200 shadow-sm">
+      <CheckCircle2 size={18} /> Verified Expert
+    </span>
+  )
+  if (s === 'REJECTED') return (
+    <span className="flex items-center gap-2 bg-rose-50 text-rose-700 px-6 py-3 rounded-2xl text-sm font-black border border-rose-200 shadow-sm">
+      <XCircle size={18} /> Application Rejected
+    </span>
+  )
+  if (s === 'REUPLOAD_REQUESTED') return (
+    <span className="flex items-center gap-2 bg-orange-50 text-orange-700 px-6 py-3 rounded-2xl text-sm font-black border border-orange-200 shadow-sm">
+      <RefreshCw size={18} /> Reupload Required
+    </span>
+  )
+  if (s === 'PENDING_ADMIN_APPROVAL') return (
+    <span className="flex items-center gap-2 bg-amber-50 text-amber-700 px-6 py-3 rounded-2xl text-sm font-black border border-amber-200 shadow-sm uppercase tracking-wider">
+      <Activity size={18} /> Pending Admin Review
+    </span>
+  )
+  return (
+    <span className="flex items-center gap-2 bg-slate-50 text-slate-600 px-6 py-3 rounded-2xl text-sm font-black border border-slate-200 shadow-sm uppercase tracking-wider">
+      <Activity size={18} /> {status || 'Pending'}
+    </span>
+  )
+}
 
 export function PractitionerDashboard() {
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -22,15 +54,18 @@ export function PractitionerDashboard() {
     { label: 'Settings', path: '#', icon: <Settings size={20} /> },
   ];
 
-  useEffect(() => {
-    fetchProfile();
-  }, []);
+  useEffect(() => { fetchProfile(); }, []);
 
   const fetchProfile = async () => {
     try {
       const res = await api.getProfile();
       setProfile(res);
-      setEditForm(res);
+      setEditForm({
+        name: res.name,
+        city: res.city,
+        country: res.country,
+        specialization: res.specialization,
+      });
       if (res.id) {
         const bookingRes = await api.getPractitionerBookings(res.id);
         setBookings(bookingRes);
@@ -53,10 +88,11 @@ export function PractitionerDashboard() {
     }
     setLoading(true);
     try {
-      await api.updateProfile(editForm);
+      const updated = await api.updateProfile(editForm);
       setMessage('Profile updated successfully');
-      setProfile({ ...profile, ...editForm } as Profile);
+      setProfile({ ...profile, ...updated });
       setEditForm({ ...editForm, password: '', confirmPassword: '' } as any);
+      localStorage.setItem('userName', updated.name || profile.name || '');
       setTimeout(() => setMessage(''), 3000);
     } catch (err) {
       console.error(err);
@@ -100,31 +136,57 @@ export function PractitionerDashboard() {
   return (
     <DashboardLayout sidebarItems={sidebarItems}>
       <div className="space-y-10">
+        {/* Header */}
         <motion.header
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-white p-10 rounded-[2.5rem] border border-brand-100/50 shadow-xl shadow-brand-500/5"
+          className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-gradient-to-r from-brand-600 to-violet-600 p-10 rounded-[2.5rem] shadow-xl shadow-brand-500/20 text-white"
         >
           <div>
-            <h2 className="text-4xl font-black tracking-tight text-slate-900 mb-2">
-              Practitioner <span className="text-brand-600">Portal</span>
+            <h2 className="text-4xl font-black tracking-tight mb-2">
+              Practitioner <span className="text-white/80">Portal</span>
             </h2>
-            <p className="text-slate-500 font-medium">Manage your professional credentials and bookings.</p>
+            <p className="text-white/70 font-medium">Manage your professional credentials and bookings.</p>
           </div>
-          <div className="flex items-center gap-2">
-            {profile.verificationStatus === 'APPROVED' || profile.verificationStatus === 'VERIFIED' ? (
-              <span className="flex items-center gap-2 bg-emerald-50 text-emerald-600 px-6 py-3 rounded-2xl text-sm font-black border border-emerald-100 shadow-sm shadow-emerald-500/10">
-                <CheckCircle2 size={18} /> Verified Expert
-              </span>
-            ) : (
-              <span className="flex items-center gap-2 bg-amber-50 text-amber-600 px-6 py-3 rounded-2xl text-sm font-black border border-amber-100 shadow-sm shadow-amber-500/10 uppercase tracking-wider">
-                <XCircle size={18} /> {profile.verificationStatus}
-              </span>
-            )}
-          </div>
+          <VerificationStatusBadge status={profile.verificationStatus} />
         </motion.header>
 
+        {/* Admin Comment Banner (shown when rejected or reupload requested) */}
+        {profile.adminComment && (profile.verificationStatus === 'REJECTED' || profile.verificationStatus === 'REUPLOAD_REQUESTED') && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`p-6 rounded-3xl border flex items-start gap-4 ${profile.verificationStatus === 'REJECTED'
+                ? 'bg-rose-50 border-rose-200'
+                : 'bg-orange-50 border-orange-200'
+              }`}
+          >
+            <div className={`p-2 rounded-xl flex-shrink-0 ${profile.verificationStatus === 'REJECTED' ? 'bg-rose-100' : 'bg-orange-100'}`}>
+              {profile.verificationStatus === 'REJECTED'
+                ? <AlertCircle size={20} className="text-rose-600" />
+                : <RefreshCw size={20} className="text-orange-600" />}
+            </div>
+            <div>
+              <p className={`font-black text-sm mb-1 ${profile.verificationStatus === 'REJECTED' ? 'text-rose-800' : 'text-orange-800'}`}>
+                {profile.verificationStatus === 'REJECTED' ? 'Rejection Reason' : 'Reupload Instructions'}
+              </p>
+              <p className={`text-sm font-medium ${profile.verificationStatus === 'REJECTED' ? 'text-rose-700' : 'text-orange-700'}`}>
+                {profile.adminComment}
+              </p>
+              {profile.verificationStatus === 'REUPLOAD_REQUESTED' && (
+                <button
+                  onClick={() => setActiveTab('verification')}
+                  className="mt-3 text-xs font-black text-orange-600 underline hover:text-orange-800"
+                >
+                  Go to Verification tab to reupload →
+                </button>
+              )}
+            </div>
+          </motion.div>
+        )}
+
         <AnimatePresence mode="wait">
+          {/* Overview Tab */}
           {activeTab === 'overview' && (
             <motion.div key="overview" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
               <section className="bg-white p-10 rounded-[3rem] border border-brand-100/50 shadow-xl shadow-brand-500/5">
@@ -132,17 +194,16 @@ export function PractitionerDashboard() {
                   <h3 className="text-2xl font-black flex items-center gap-3 text-slate-900">
                     <Calendar size={24} className="text-brand-600" /> Upcoming Sessions
                   </h3>
-                  <button className="text-[10px] font-black uppercase tracking-widest text-brand-600 hover:text-brand-700">Detailed Schedule</button>
                 </div>
 
                 <div className="overflow-x-auto">
                   <table className="w-full text-left">
                     <thead>
                       <tr className="border-b border-slate-100">
-                        <th className="pb-6 text-[10px] font-black uppercase tracking-widest text-slate-400 pl-4">Patient Reference</th>
+                        <th className="pb-6 text-[10px] font-black uppercase tracking-widest text-slate-400 pl-4">Patient</th>
                         <th className="pb-6 text-[10px] font-black uppercase tracking-widest text-slate-400">Date/Time</th>
                         <th className="pb-6 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
-                        <th className="pb-6 text-[10px] font-black uppercase tracking-widest text-slate-400">Details</th>
+                        <th className="pb-6 text-[10px] font-black uppercase tracking-widest text-slate-400">Notes</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
@@ -158,9 +219,9 @@ export function PractitionerDashboard() {
                             <td className="py-6 pl-4">
                               <div className="flex items-center gap-4">
                                 <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center text-brand-600 font-black text-xs">
-                                  UP
+                                  P
                                 </div>
-                                <span className="font-bold text-slate-900">USER_{booking.userId}</span>
+                                <span className="font-bold text-slate-900">Patient #{booking.userId}</span>
                               </div>
                             </td>
                             <td className="py-6 text-sm font-bold text-slate-600 tabular-nums">
@@ -168,18 +229,19 @@ export function PractitionerDashboard() {
                             </td>
                             <td className="py-6">
                               <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-sm ${booking.status === 'CONFIRMED' ? 'border-emerald-200 text-emerald-600 bg-emerald-50' :
-                                booking.status === 'CANCELLED' ? 'border-rose-200 text-rose-600 bg-rose-50' :
-                                  'border-brand-200 text-brand-600 bg-brand-50'
+                                  booking.status === 'CANCELLED' ? 'border-rose-200 text-rose-600 bg-rose-50' :
+                                    'border-brand-200 text-brand-600 bg-brand-50'
                                 }`}>
                                 {booking.status}
                               </span>
                             </td>
-                            <td className="py-6 text-slate-500 text-xs font-medium italic max-w-[200px] truncate">{booking.notes || 'No specific notes'}</td>
+                            <td className="py-6 text-slate-500 text-xs font-medium italic max-w-[200px] truncate">{booking.notes || 'No notes'}</td>
                           </motion.tr>
                         ))
                       ) : (
                         <tr>
                           <td colSpan={4} className="py-20 text-center">
+                            <Calendar size={40} className="mx-auto text-slate-200 mb-4" />
                             <p className="text-slate-400 font-black uppercase tracking-widest text-[10px]">No active bookings found</p>
                           </td>
                         </tr>
@@ -191,6 +253,7 @@ export function PractitionerDashboard() {
             </motion.div>
           )}
 
+          {/* Profile Tab */}
           {activeTab === 'profile' && (
             <motion.div key="profile" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
               <section className="bg-white p-10 rounded-[3rem] border border-brand-100/50 shadow-xl shadow-brand-500/5 max-w-4xl mx-auto">
@@ -292,26 +355,40 @@ export function PractitionerDashboard() {
                     disabled={loading}
                     className="w-full bg-brand-600 hover:bg-brand-700 text-white font-black py-4 rounded-2xl shadow-xl shadow-brand-600/20 transition-all active:scale-95 disabled:opacity-50 mt-4 flex items-center justify-center gap-2"
                   >
-                    {loading ? 'Updating...' : <>Save Changes <ArrowRight size={18} /></>}
+                    {loading ? 'Updating...' : <><ArrowRight size={18} /> Save Changes</>}
                   </button>
                 </div>
               </section>
             </motion.div>
           )}
 
+          {/* Verification Tab */}
           {activeTab === 'verification' && (
             <motion.div key="verification" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-              <section className="bg-white p-10 rounded-[3rem] border border-brand-100/50 shadow-xl shadow-brand-500/5 max-w-2xl mx-auto h-fit">
+              <section className="bg-white p-10 rounded-[3rem] border border-brand-100/50 shadow-xl shadow-brand-500/5 max-w-2xl mx-auto">
                 <h3 className="text-2xl font-black mb-8 flex items-center gap-3 text-slate-900">
                   <ShieldCheck size={24} className="text-brand-600" /> Professional Verification
                 </h3>
+
+                {/* Current Status */}
+                <div className="mb-8 p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Current Status</p>
+                  <VerificationStatusBadge status={profile.verificationStatus} />
+                  {profile.adminComment && (
+                    <div className="mt-4 flex items-start gap-3 bg-amber-50 border border-amber-100 rounded-2xl p-4">
+                      <MessageSquare size={16} className="text-amber-500 mt-0.5 flex-shrink-0" />
+                      <p className="text-sm text-amber-700 font-medium">{profile.adminComment}</p>
+                    </div>
+                  )}
+                </div>
+
                 <div className="space-y-8">
                   <div className="p-10 bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2.5rem] flex flex-col items-center text-center group hover:border-brand-300 transition-all hover:bg-brand-50/30">
                     <div className="p-5 rounded-3xl bg-white shadow-sm mb-6 text-slate-400 group-hover:text-brand-600 transition-colors">
                       <CloudUpload size={40} />
                     </div>
                     <h4 className="font-black text-slate-900 mb-2">Upload your credentials</h4>
-                    <p className="text-xs text-slate-500 font-medium mb-6">Attach your PDF degree or certificate for AI verification.</p>
+                    <p className="text-xs text-slate-500 font-medium mb-6">Attach your PDF degree or certificate for admin verification.</p>
                     <input
                       type="file"
                       id="degree-upload"
@@ -326,12 +403,13 @@ export function PractitionerDashboard() {
                       {degreeFile ? degreeFile.name : 'Choose File'}
                     </label>
                   </div>
+
                   <button
                     onClick={uploadDegree}
                     disabled={loading || !degreeFile}
                     className="w-full bg-slate-900 hover:bg-black text-white font-black py-4 rounded-2xl shadow-xl transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
                   >
-                    {loading ? 'Processing...' : <>Submit for AI Review <ShieldCheck size={18} /></>}
+                    {loading ? 'Processing...' : <><ShieldCheck size={18} /> Submit for Review</>}
                   </button>
 
                   {profile.degreeFile && (
@@ -345,7 +423,7 @@ export function PractitionerDashboard() {
                           <FileText size={20} />
                         </div>
                         <div>
-                          <p className="text-sm font-black text-emerald-900 leading-tight">Document Secured</p>
+                          <p className="text-sm font-black text-emerald-900 leading-tight">Document Uploaded</p>
                           <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mt-1">Status: {profile.verificationStatus}</p>
                         </div>
                       </div>
@@ -365,6 +443,7 @@ export function PractitionerDashboard() {
           )}
         </AnimatePresence>
 
+        {/* Toast Message */}
         {message && (
           <motion.div
             initial={{ y: 50, opacity: 0 }}

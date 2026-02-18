@@ -23,7 +23,8 @@ export interface Profile {
     id: number
     name: string
     email: string
-    password?: string // Added for profile updates
+    password?: string
+    confirmPassword?: string
     role: string
     city?: string
     country?: string
@@ -32,6 +33,7 @@ export interface Profile {
     degreeFile?: string
     verified?: boolean
     emailVerified: boolean
+    adminComment?: string
 }
 
 export interface Booking {
@@ -47,7 +49,6 @@ const apiClient = axios.create({ baseURL: API_BASE, withCredentials: true })
 
 apiClient.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
-        // 🔥 Skip Authorization header for public auth endpoints
         const publicPaths = ['/auth/login', '/auth/register', '/auth/verify-otp', '/auth/resend-otp', '/auth/forgot-password']
         const isPublic = publicPaths.some(path => config.url?.endsWith(path))
 
@@ -63,23 +64,23 @@ apiClient.interceptors.request.use(
 )
 
 apiClient.interceptors.response.use(
-    (response) => {
-        return response;
-    },
+    (response) => response,
     (error) => {
         const publicPaths = ['/auth/login', '/auth/register', '/auth/verify-otp', '/auth/resend-otp', '/auth/forgot-password'];
         const isPublic = publicPaths.some(path => error.config?.url?.endsWith(path));
 
-        if (!isPublic && (error.response?.status === 401 || error.response?.status === 403)) {
-            console.warn(`API ERROR ${error.response?.status}: ${error.config?.url}. Redirecting to login.`);
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('userRole');
-            localStorage.removeItem('emailVerified');
-            window.location.href = '/login';
+        // Only redirect to login on 401 for protected endpoints
+        if (!isPublic && error.response?.status === 401) {
+            console.warn(`API 401 on ${error.config?.url}. Token invalid/expired. Redirecting to login.`);
+            localStorage.removeItem('accessToken')
+            localStorage.removeItem('userRole')
+            localStorage.removeItem('emailVerified')
+            localStorage.removeItem('userName')
+            window.location.href = '/login'
         }
-        return Promise.reject(error);
+        return Promise.reject(error)
     }
-);
+)
 
 export const api = {
     async login(data: LoginRequest): Promise<AuthResponse> {
@@ -87,6 +88,7 @@ export const api = {
         localStorage.setItem('accessToken', response.data.accessToken)
         localStorage.setItem('userRole', response.data.role)
         localStorage.setItem('emailVerified', String(response.data.emailVerified))
+        localStorage.setItem('userName', response.data.name || '')
         return response.data
     },
 
@@ -95,6 +97,7 @@ export const api = {
         localStorage.setItem('accessToken', response.data.accessToken)
         localStorage.setItem('userRole', response.data.role)
         localStorage.setItem('emailVerified', String(response.data.emailVerified))
+        localStorage.setItem('userName', response.data.name || '')
         return response.data
     },
 
@@ -118,18 +121,44 @@ export const api = {
         return response.data
     },
 
+    // Admin: get all practitioners (PROVIDER role)
     async getPractitioners(): Promise<Profile[]> {
         const response = await apiClient.get('/admin/users')
         return response.data
     },
 
+    // Admin: get all users (CLIENT + PROVIDER, no ADMIN)
     async getAllUsers(): Promise<Profile[]> {
         const response = await apiClient.get('/admin/all-users')
         return response.data
     },
 
-    async approvePractitioner(id: number) { await apiClient.put(`/admin/approve/${id}`) },
-    async rejectPractitioner(id: number) { await apiClient.put(`/admin/reject/${id}`) },
+    // Approve a practitioner (admin)
+    async approvePractitioner(id: number) {
+        await apiClient.put(`/admin/approve/${id}`)
+    },
+
+    // Reject a practitioner with optional comment (admin)
+    async rejectPractitioner(id: number, comment?: string) {
+        await apiClient.put(`/admin/reject/${id}`, { comment: comment || '' })
+    },
+
+    // Request document reupload (admin)
+    async requestReupload(id: number, comment?: string) {
+        await apiClient.put(`/admin/request-reupload/${id}`, { comment: comment || '' })
+    },
+
+    // Get only APPROVED practitioners (for patient dashboard & marketplace)
+    async getApprovedPractitioners(): Promise<Profile[]> {
+        const response = await apiClient.get('/user/practitioners')
+        return response.data
+    },
+
+    // Get all practitioners regardless of status (for admin-like views)
+    async getAllPractitioners(): Promise<Profile[]> {
+        const response = await apiClient.get('/user/all-practitioners')
+        return response.data
+    },
 
     // Bookings
     async createBooking(data: Booking): Promise<Booking> {
@@ -147,11 +176,6 @@ export const api = {
         return response.data
     },
 
-    async getAllPractitioners(): Promise<Profile[]> {
-        const response = await apiClient.get('/admin/users')
-        return response.data
-    },
-
     async verifyEmail(token: string): Promise<{ message: string }> {
         const response = await apiClient.get(`/auth/verify?token=${token}`)
         return response.data
@@ -162,6 +186,7 @@ export const api = {
         localStorage.setItem('accessToken', response.data.accessToken)
         localStorage.setItem('userRole', response.data.role)
         localStorage.setItem('emailVerified', String(response.data.emailVerified))
+        localStorage.setItem('userName', response.data.name || '')
         return response.data
     },
 
