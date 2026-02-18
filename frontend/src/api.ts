@@ -23,6 +23,7 @@ export interface Profile {
   id: number
   name: string
   email: string
+  password?: string // Added for profile updates
   role: string
   city?: string
   country?: string
@@ -113,8 +114,13 @@ export const api = {
     return response.data
   },
 
-  async getUsers(): Promise<Profile[]> {
+  async getPractitioners(): Promise<Profile[]> {
     const response = await apiClient.get('/admin/users')
+    return response.data
+  },
+
+  async getAllUsers(): Promise<Profile[]> {
+    const response = await apiClient.get('/admin/all-users')
     return response.data
   },
 
@@ -138,7 +144,7 @@ export const api = {
   },
 
   async getAllPractitioners(): Promise<Profile[]> {
-    const response = await apiClient.get('/admin/practitioners')
+    const response = await apiClient.get('/admin/users')
     return response.data
   },
 

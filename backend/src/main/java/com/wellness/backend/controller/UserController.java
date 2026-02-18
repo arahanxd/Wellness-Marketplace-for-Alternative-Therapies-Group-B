@@ -17,6 +17,9 @@ public class UserController {
     @Autowired
     private UserService userService;
 
+    @Autowired
+    private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+
     // 🔹 Get logged-in user's profile
     @GetMapping("/profile")
     public ResponseEntity<UserEntity> getProfile() {
@@ -31,7 +34,8 @@ public class UserController {
     public ResponseEntity<UserEntity> updateProfile(@RequestBody UserEntity updatedProfile) {
         String email = getCurrentUserEmail();
         Optional<UserEntity> userOpt = userService.getUserByEmail(email);
-        if (userOpt.isEmpty()) return ResponseEntity.status(404).build();
+        if (userOpt.isEmpty())
+            return ResponseEntity.status(404).build();
         UserEntity user = userOpt.get();
 
         // Update profile fields
@@ -40,13 +44,19 @@ public class UserController {
         user.setCountry(updatedProfile.getCountry());
         user.setSpecialization(updatedProfile.getSpecialization());
 
-        userService.saveUser(user); // Save without triggering login redirect
+        // Update password if provided
+        if (updatedProfile.getPassword() != null && !updatedProfile.getPassword().isEmpty()) {
+            user.setPassword(passwordEncoder.encode(updatedProfile.getPassword()));
+        }
+
+        userService.saveUser(user);
         return ResponseEntity.ok(user);
     }
 
     private String getCurrentUserEmail() {
         Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        if (principal instanceof UserDetails) return ((UserDetails) principal).getUsername();
+        if (principal instanceof UserDetails)
+            return ((UserDetails) principal).getUsername();
         return principal.toString();
     }
 }

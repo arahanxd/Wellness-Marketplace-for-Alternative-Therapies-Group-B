@@ -18,8 +18,9 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     }
 
     // Redirect to otp verification if email not verified
-    // But allow if we are already on the otp-verification page or similar (though ProtectedRoute isn't usually used there)
-    if (token && !emailVerified && location.pathname !== '/otp-verification') {
+    // We check if emailVerified is not 'true' AND the role is not 'ADMIN' (Admin usually doesn't need OTP)
+    if (token && userRole !== 'ADMIN' && !emailVerified && location.pathname !== '/otp-verification') {
+        console.warn(`PROTECTED ROUTE: User not verified. Redirecting from ${location.pathname} to /otp-verification`);
         return <Navigate to="/otp-verification" replace />;
     }
 

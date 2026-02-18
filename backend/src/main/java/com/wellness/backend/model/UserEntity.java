@@ -55,6 +55,8 @@ public class UserEntity {
 
     // Optional helper methods (if needed for UserService)
     public boolean isVerified() {
-        return "VERIFIED".equalsIgnoreCase(this.verificationStatus) || this.verified;
+        return "VERIFIED".equalsIgnoreCase(this.verificationStatus) ||
+                "APPROVED".equalsIgnoreCase(this.verificationStatus) ||
+                this.verified;
     }
 }

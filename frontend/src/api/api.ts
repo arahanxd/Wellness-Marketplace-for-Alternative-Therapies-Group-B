@@ -23,6 +23,7 @@ export interface Profile {
     id: number
     name: string
     email: string
+    password?: string // Added for profile updates
     role: string
     city?: string
     country?: string
@@ -62,19 +63,23 @@ apiClient.interceptors.request.use(
 )
 
 apiClient.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        return response;
+    },
     (error) => {
-        // 🔥 Only redirect to login if we get a 401/403 on a NON-public endpoint
-        const publicPaths = ['/auth/', '/degree/']
-        const isPublic = publicPaths.some(path => error.config?.url?.includes(path))
+        const publicPaths = ['/auth/login', '/auth/register', '/auth/verify-otp', '/auth/resend-otp', '/auth/forgot-password'];
+        const isPublic = publicPaths.some(path => error.config?.url?.endsWith(path));
 
         if (!isPublic && (error.response?.status === 401 || error.response?.status === 403)) {
-            localStorage.removeItem('accessToken')
-            window.location.href = '/login'
+            console.warn(`API ERROR ${error.response?.status}: ${error.config?.url}. Redirecting to login.`);
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('userRole');
+            localStorage.removeItem('emailVerified');
+            window.location.href = '/login';
         }
-        return Promise.reject(error)
+        return Promise.reject(error);
     }
-)
+);
 
 export const api = {
     async login(data: LoginRequest): Promise<AuthResponse> {
@@ -113,8 +118,13 @@ export const api = {
         return response.data
     },
 
-    async getUsers(): Promise<Profile[]> {
+    async getPractitioners(): Promise<Profile[]> {
         const response = await apiClient.get('/admin/users')
+        return response.data
+    },
+
+    async getAllUsers(): Promise<Profile[]> {
+        const response = await apiClient.get('/admin/all-users')
         return response.data
     },
 
@@ -138,7 +148,7 @@ export const api = {
     },
 
     async getAllPractitioners(): Promise<Profile[]> {
-        const response = await apiClient.get('/admin/practitioners')
+        const response = await apiClient.get('/admin/users')
         return response.data
     },
 
