@@ -10,10 +10,16 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     const location = useLocation();
     const token = localStorage.getItem('accessToken');
     const userRole = localStorage.getItem('userRole');
+    const emailVerified = localStorage.getItem('emailVerified') === 'true';
 
     if (!token) {
         // Redirect to login if not authenticated
         return <Navigate to="/login" state={{ from: location }} replace />;
+    }
+
+    // Redirect to otp verification if email not verified
+    if (!emailVerified) {
+        return <Navigate to="/otp-verification" replace />;
     }
 
     if (allowedRoles && userRole && !allowedRoles.includes(userRole)) {

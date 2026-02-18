@@ -41,6 +41,18 @@ public class UserEntity {
     @Column(columnDefinition = "BOOLEAN DEFAULT FALSE")
     private boolean verified = false;
 
+    @Column(name = "email_verified", columnDefinition = "BOOLEAN DEFAULT FALSE")
+    private boolean emailVerified = false;
+
+    @Column(name = "verification_token")
+    private String verificationToken;
+
+    @Column(name = "otp")
+    private String otp;
+
+    @Column(name = "otp_expiry")
+    private java.time.LocalDateTime otpExpiry;
+
     // Optional helper methods (if needed for UserService)
     public boolean isVerified() {
         return "VERIFIED".equalsIgnoreCase(this.verificationStatus) || this.verified;

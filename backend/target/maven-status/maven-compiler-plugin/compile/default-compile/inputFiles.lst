@@ -12,11 +12,14 @@ C:\Career\Internship\Virtual Internship\Infosys\Working Project\Copy Wellness Ma
 C:\Career\Internship\Virtual Internship\Infosys\Working Project\Copy Wellness Marketplace for Alternative Therapies\backend\src\main\java\com\wellness\backend\dto\AuthenticationResponse.java
 C:\Career\Internship\Virtual Internship\Infosys\Working Project\Copy Wellness Marketplace for Alternative Therapies\backend\src\main\java\com\wellness\backend\dto\LoginRequest.java
 C:\Career\Internship\Virtual Internship\Infosys\Working Project\Copy Wellness Marketplace for Alternative Therapies\backend\src\main\java\com\wellness\backend\dto\RegisterRequest.java
+C:\Career\Internship\Virtual Internship\Infosys\Working Project\Copy Wellness Marketplace for Alternative Therapies\backend\src\main\java\com\wellness\backend\exception\GlobalExceptionHandler.java
 C:\Career\Internship\Virtual Internship\Infosys\Working Project\Copy Wellness Marketplace for Alternative Therapies\backend\src\main\java\com\wellness\backend\model\BookingEntity.java
 C:\Career\Internship\Virtual Internship\Infosys\Working Project\Copy Wellness Marketplace for Alternative Therapies\backend\src\main\java\com\wellness\backend\model\UserEntity.java
+C:\Career\Internship\Virtual Internship\Infosys\Working Project\Copy Wellness Marketplace for Alternative Therapies\backend\src\main\java\com\wellness\backend\model\UserRole.java
 C:\Career\Internship\Virtual Internship\Infosys\Working Project\Copy Wellness Marketplace for Alternative Therapies\backend\src\main\java\com\wellness\backend\repository\BookingRepository.java
 C:\Career\Internship\Virtual Internship\Infosys\Working Project\Copy Wellness Marketplace for Alternative Therapies\backend\src\main\java\com\wellness\backend\repository\UserRepository.java
 C:\Career\Internship\Virtual Internship\Infosys\Working Project\Copy Wellness Marketplace for Alternative Therapies\backend\src\main\java\com\wellness\backend\service\CustomUserDetailsService.java
+C:\Career\Internship\Virtual Internship\Infosys\Working Project\Copy Wellness Marketplace for Alternative Therapies\backend\src\main\java\com\wellness\backend\service\EmailService.java
 C:\Career\Internship\Virtual Internship\Infosys\Working Project\Copy Wellness Marketplace for Alternative Therapies\backend\src\main\java\com\wellness\backend\service\JwtService.java
 C:\Career\Internship\Virtual Internship\Infosys\Working Project\Copy Wellness Marketplace for Alternative Therapies\backend\src\main\java\com\wellness\backend\service\UserService.java
 C:\Career\Internship\Virtual Internship\Infosys\Working Project\Copy Wellness Marketplace for Alternative Therapies\backend\src\main\java\com\wellness\backend\user\UserRole.java

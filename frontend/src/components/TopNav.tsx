@@ -4,7 +4,7 @@ export function TopNav() {
   return (
     <header className="border-b border-emerald-100 bg-white/80 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-        <div className="flex items-center gap-2">
+        <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-500 text-white shadow-soft-card">
             <span className="text-lg font-semibold">W</span>
           </div>
@@ -12,7 +12,7 @@ export function TopNav() {
             <div className="text-sm font-semibold text-brand-800">Wellness Hub</div>
             <div className="text-xs text-slate-500">Holistic Therapy Marketplace</div>
           </div>
-        </div>
+        </Link>
 
         <nav className="hidden items-center gap-6 text-sm font-medium text-slate-700 md:flex">
           <Link to="/" className="hover:text-brand-600">

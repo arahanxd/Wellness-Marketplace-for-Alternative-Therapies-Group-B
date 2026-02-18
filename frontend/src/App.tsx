@@ -9,14 +9,23 @@ import { AdminDashboard } from './pages/AdminDashboard'
 import { MarketplacePage } from './pages/MarketplacePage'
 import { ProtectedRoute } from './components/ProtectedRoute'
 
+import { VerificationPendingPage } from './pages/VerificationPendingPage'
+import { VerifyEmailLanding } from './pages/VerifyEmailLanding'
+import { OtpVerificationPage } from './pages/OtpVerificationPage'
+
 function App() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-brand-50 to-emerald-50">
+    <div className="min-h-screen bg-[#F8FAFC]">
       <Routes>
         {/* Landing & Auth */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+
+        {/* Verification */}
+        <Route path="/verification-sent" element={<VerificationPendingPage />} />
+        <Route path="/otp-verification" element={<OtpVerificationPage />} />
+        <Route path="/verify" element={<VerifyEmailLanding />} />
 
         {/* Degree Upload */}
         <Route path="/upload-degree" element={<DegreeUploadPage />} />

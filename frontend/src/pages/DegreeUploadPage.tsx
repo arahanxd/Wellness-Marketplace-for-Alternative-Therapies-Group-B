@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TopNav } from '../components/TopNav';
-import { api } from '../api';
-import type { Profile } from '../api';
+import { api, type Profile } from '../api/api';
 
 export function DegreeUploadPage() {
   const navigate = useNavigate();
@@ -13,7 +12,7 @@ export function DegreeUploadPage() {
 
   useEffect(() => {
     api.getProfile()
-      .then(profile => setUserProfile(profile))
+      .then((profile: Profile) => setUserProfile(profile))
       .catch(() => setError('Failed to load user profile'));
   }, []);
 

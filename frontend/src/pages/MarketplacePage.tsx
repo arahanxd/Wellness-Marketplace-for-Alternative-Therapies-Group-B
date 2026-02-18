@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
-import { api } from '../api';
-import type { Profile, Booking } from '../api';
+import { api, type Profile, type Booking } from '../api/api';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle2, Star, MapPin, Search, Calendar, Sparkles, X } from 'lucide-react';
+import { Compass, LayoutDashboard, Calendar, CheckCircle2, Star, MapPin, Search, Sparkles, X } from 'lucide-react';
 
 export function MarketplacePage() {
     const [practitioners, setPractitioners] = useState<Profile[]>([]);
@@ -58,8 +57,9 @@ export function MarketplacePage() {
 
     return (
         <DashboardLayout sidebarItems={[
-            { label: 'Marketplace', active: true, path: '/marketplace' },
-            { label: 'My Dashboard', path: profile?.role === 'PROVIDER' ? '/practitioner' : '/user' }
+            { label: 'Marketplace', active: true, path: '/marketplace', icon: <Compass size={20} /> },
+            { label: 'My Dashboard', path: profile?.role === 'PROVIDER' ? '/practitioner' : '/user', icon: <LayoutDashboard size={20} /> },
+            { label: 'Booking History', path: '#', icon: <Calendar size={20} /> }
         ]}>
             <div className="p-8 max-w-7xl mx-auto space-y-12 min-h-screen">
                 <header className="text-center space-y-4">

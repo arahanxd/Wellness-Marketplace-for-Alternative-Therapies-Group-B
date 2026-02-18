@@ -7,33 +7,55 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Collections;
 
 @RestController
 @RequestMapping("/api/admin")
-@CrossOrigin(origins = "http://localhost:5173")
 public class AdminController {
 
     @Autowired
     private UserRepository userRepository;
 
-    @GetMapping("/practitioners")
-    public ResponseEntity<List<UserEntity>> getAllPractitioners() {
-        return ResponseEntity.ok(userRepository.findByRole("PROVIDER"));
+    @Autowired
+    private com.wellness.backend.service.EmailService emailService;
+
+    @GetMapping("/users")
+    public ResponseEntity<List<UserEntity>> getAllUsers() {
+        // Return all users except the admin itself
+        return ResponseEntity.ok(userRepository.findAll().stream()
+                .filter(u -> !"ADMIN".equalsIgnoreCase(u.getRole()))
+                .toList());
     }
 
     @PutMapping("/approve/{id}")
     public ResponseEntity<?> approve(@PathVariable Long id) {
-        UserEntity user = userRepository.findById(id).orElseThrow();
+        System.out.println("APPROVE ID: " + id);
+        UserEntity user = userRepository.findById(id).orElse(null);
+        if (user == null) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.NOT_FOUND)
+                    .body(Collections.singletonMap("error", "Practitioner not found"));
+        }
+        // Prevent re-approval if already approved/verified
+        if ("APPROVED".equalsIgnoreCase(user.getVerificationStatus())) {
+            return ResponseEntity.ok(Collections.singletonMap("message", "User already approved"));
+        }
         user.setVerificationStatus("APPROVED");
+        user.setEmailVerified(true); // Ensure they are marked verified
         userRepository.save(user);
-        return ResponseEntity.ok().build();
+        emailService.sendApprovalEmail(user.getEmail());
+        return ResponseEntity.ok(Collections.singletonMap("message", "User approved successfully"));
     }
 
     @PutMapping("/reject/{id}")
     public ResponseEntity<?> reject(@PathVariable Long id) {
-        UserEntity user = userRepository.findById(id).orElseThrow();
+        UserEntity user = userRepository.findById(id).orElse(null);
+        if (user == null) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.NOT_FOUND)
+                    .body(Collections.singletonMap("error", "Practitioner not found"));
+        }
         user.setVerificationStatus("REJECTED");
         userRepository.save(user);
-        return ResponseEntity.ok().build();
+        emailService.sendRejectionEmail(user.getEmail());
+        return ResponseEntity.ok(Collections.singletonMap("message", "User rejected successfully"));
     }
 }

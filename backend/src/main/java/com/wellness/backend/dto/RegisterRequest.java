@@ -1,6 +1,6 @@
 package com.wellness.backend.dto;
 
-import com.wellness.backend.user.UserRole;
+import com.wellness.backend.model.UserRole;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

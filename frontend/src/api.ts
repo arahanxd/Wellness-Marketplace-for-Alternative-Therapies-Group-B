@@ -13,7 +13,12 @@ export interface RegisterRequest {
   city?: string
   country?: string
 }
-export interface AuthResponse { accessToken: string; role: string }
+export interface AuthResponse {
+  accessToken: string;
+  role: string;
+  name: string;
+  emailVerified: boolean;
+}
 export interface Profile {
   id: number
   name: string
@@ -25,6 +30,7 @@ export interface Profile {
   verificationStatus?: string
   degreeFile?: string
   verified?: boolean
+  emailVerified: boolean
 }
 
 export interface Booking {
@@ -40,8 +46,16 @@ const apiClient = axios.create({ baseURL: API_BASE, withCredentials: true })
 
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const token = localStorage.getItem('accessToken')
-    if (token && config.headers) config.headers['Authorization'] = `Bearer ${token}`
+    // 🔥 Skip Authorization header for public auth endpoints
+    const publicPaths = ['/auth/login', '/auth/register', '/auth/verify-otp', '/auth/resend-otp', '/auth/forgot-password']
+    const isPublic = publicPaths.some(path => config.url?.endsWith(path))
+
+    if (!isPublic) {
+      const token = localStorage.getItem('accessToken')
+      if (token && config.headers) {
+        config.headers['Authorization'] = `Bearer ${token}`
+      }
+    }
     return config
   },
   (error) => Promise.reject(error)
@@ -50,7 +64,11 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401 || error.response?.status === 403) {
+    // 🔥 Only redirect to login if we get a 401/403 on a NON-public endpoint
+    const publicPaths = ['/auth/', '/degree/']
+    const isPublic = publicPaths.some(path => error.config?.url?.includes(path))
+
+    if (!isPublic && (error.response?.status === 401 || error.response?.status === 403)) {
       localStorage.removeItem('accessToken')
       window.location.href = '/login'
     }
@@ -91,8 +109,8 @@ export const api = {
     return response.data
   },
 
-  async getPractitioners(): Promise<Profile[]> {
-    const response = await apiClient.get('/admin/practitioners')
+  async getUsers(): Promise<Profile[]> {
+    const response = await apiClient.get('/admin/users')
     return response.data
   },
 
@@ -117,6 +135,26 @@ export const api = {
 
   async getAllPractitioners(): Promise<Profile[]> {
     const response = await apiClient.get('/admin/practitioners')
+    return response.data
+  },
+
+  async verifyEmail(token: string): Promise<{ message: string }> {
+    const response = await apiClient.get(`/auth/verify?token=${token}`)
+    return response.data
+  },
+
+  async verifyOtp(email: string, otp: string): Promise<{ message: string }> {
+    const response = await apiClient.post('/auth/verify-otp', { email, otp })
+    return response.data
+  },
+
+  async resendOtp(email: string): Promise<{ message: string }> {
+    const response = await apiClient.post('/auth/resend-otp', { email })
+    return response.data
+  },
+
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    const response = await apiClient.post('/auth/forgot-password', { email })
     return response.data
   }
 }

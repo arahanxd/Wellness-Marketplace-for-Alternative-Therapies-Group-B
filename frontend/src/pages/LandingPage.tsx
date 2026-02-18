@@ -1,100 +1,195 @@
-import { Link } from 'react-router-dom'
-import { TopNav } from '../components/TopNav'
+import { Link } from "react-router-dom";
+import { TopNav } from "../components/TopNav";
+import { motion, type Variants } from "framer-motion";
+import {
+  ArrowRight,
+  Star,
+  Heart,
+  Activity,
+  CheckCircle2,
+  ChevronRight,
+  PlayCircle,
+} from "lucide-react";
 
 export function LandingPage() {
+  const containerVariants: Variants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.15,
+      },
+    },
+  };
+
+  const itemVariants: Variants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.6,
+        ease: [0.22, 1, 0.36, 1], // fixed easing
+      },
+    },
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-brand-50 to-emerald-50">
+    <div className="min-h-screen bg-[#F8FAFC] overflow-x-hidden">
       <TopNav />
 
-      <main className="mx-auto max-w-6xl px-4 pb-16 pt-10 sm:px-6 lg:px-8">
-        <section className="grid gap-10 md:grid-cols-2 md:items-center">
-          <div>
-            <h1 className="text-3xl font-semibold leading-snug text-slate-900 sm:text-4xl">
-              Find the Right Therapy
-              <span className="block text-brand-700">for Your Wellness</span>
-            </h1>
-            <p className="mt-4 text-sm text-slate-600">
-              Connecting you with trusted holistic health practitioners, wellness products, and
-              community support in one serene experience.
-            </p>
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Link
-                to="/register?role=PATIENT"
-                className="rounded-full bg-brand-600 px-6 py-2 text-sm font-semibold text-white shadow-soft-card hover:bg-brand-700"
+      <main>
+        {/* HERO */}
+        <section className="relative pt-20 pb-24 lg:pt-32 lg:pb-40 px-4">
+          <div className="mx-auto max-w-6xl">
+            <div className="grid gap-16 lg:grid-cols-2 lg:items-center">
+              <motion.div
+                initial={{ opacity: 0, x: -30 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.8 }}
+                className="space-y-8"
               >
-                Book a Session
-              </Link>
-              <Link
-                to="/register?role=PRACTITIONER"
-                className="rounded-full border border-brand-600/40 bg-white px-6 py-2 text-sm font-semibold text-brand-700 shadow-sm hover:border-brand-700/60"
+                <h1 className="text-5xl lg:text-7xl font-black leading-tight text-slate-900">
+                  Find the{" "}
+                  <span className="text-brand-600">Right Therapy</span> for
+                  Your Wellness
+                </h1>
+
+                <p className="text-xl text-slate-600 max-w-lg font-medium">
+                  Connecting you with trusted holistic health practitioners and
+                  wellness solutions in one seamless experience.
+                </p>
+
+                <div className="flex gap-4 pt-4">
+                  <motion.div whileHover={{ scale: 1.05 }}>
+                    <Link
+                      to="/register?role=PATIENT"
+                      className="flex items-center gap-2 rounded-2xl bg-brand-600 px-8 py-4 text-lg font-bold text-white shadow-lg hover:bg-brand-700 transition"
+                    >
+                      Book a Session
+                      <ArrowRight size={18} />
+                    </Link>
+                  </motion.div>
+
+                  <motion.div whileHover={{ scale: 1.05 }}>
+                    <Link
+                      to="/register?role=PRACTITIONER"
+                      className="flex items-center rounded-2xl border px-8 py-4 text-lg font-bold text-slate-700 hover:border-brand-500 hover:text-brand-600 transition"
+                    >
+                      Join as Practitioner
+                    </Link>
+                  </motion.div>
+                </div>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 1 }}
+                className="relative"
               >
-                Join as Practitioner
-              </Link>
-            </div>
-
-            <div className="mt-8 grid gap-3 text-xs sm:grid-cols-3">
-              <div className="rounded-2xl bg-white p-4 shadow-soft-card">
-                <p className="font-semibold text-slate-800">Verified Practitioners</p>
-                <p className="mt-1 text-slate-500">Trusted experts in holistic care.</p>
-              </div>
-              <div className="rounded-2xl bg-white p-4 shadow-soft-card">
-                <p className="font-semibold text-slate-800">Easy Online Booking</p>
-                <p className="mt-1 text-slate-500">Schedule your sessions in minutes.</p>
-              </div>
-              <div className="rounded-2xl bg-white p-4 shadow-soft-card">
-                <p className="font-semibold text-slate-800">Wellness Products</p>
-                <p className="mt-1 text-slate-500">Shop natural remedies &amp; tools.</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-3xl bg-[url('https://images.pexels.com/photos/3738341/pexels-photo-3738341.jpeg?auto=compress&cs=tinysrgb&w=1200')] bg-cover bg-center shadow-soft-card">
-            <div className="flex min-h-[320px] items-end justify-between rounded-3xl bg-gradient-to-t from-black/60 to-black/5 p-6 text-xs text-white sm:min-h-[380px]">
-              <div>
-                <p className="text-[11px] uppercase tracking-[0.18em] text-emerald-200">
-                  Popular Therapy
-                </p>
-                <p className="mt-1 text-lg font-semibold">Acupuncture for Stress</p>
-                <p className="mt-2 max-w-xs text-[11px] text-emerald-100">
-                  Restore your body&apos;s natural balance with our trusted practitioners.
-                </p>
-              </div>
-              <div className="rounded-2xl bg-white/90 p-4 text-[11px] text-slate-800 shadow-soft-card">
-                <p className="font-semibold text-slate-900">Community Q&amp;A</p>
-                <p className="mt-1 text-slate-600">
-                  &quot;How effective is acupuncture for back pain?&quot;
-                </p>
-                <button className="mt-3 w-full rounded-full bg-brand-600 px-3 py-1 text-xs font-semibold text-white hover:bg-brand-700">
-                  Read Answers
-                </button>
-              </div>
+                <div className="overflow-hidden rounded-3xl shadow-2xl">
+                  <img
+                    src="https://images.pexels.com/photos/3738341/pexels-photo-3738341.jpeg"
+                    alt="Wellness"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              </motion.div>
             </div>
           </div>
         </section>
 
-        <section id="therapies" className="mt-14">
-          <h2 className="text-lg font-semibold text-slate-900">Popular Therapies</h2>
-          <div className="mt-4 grid gap-4 text-sm sm:grid-cols-3">
-            {['Acupuncture', 'Ayurveda', 'Chiropractic'].map((therapy) => (
-              <div
-                key={therapy}
-                className="flex flex-col justify-between rounded-2xl bg-white p-4 shadow-soft-card"
-              >
-                <div>
-                  <p className="font-semibold text-slate-800">{therapy}</p>
-                  <p className="mt-1 text-xs text-slate-600">
-                    Learn how {therapy.toLowerCase()} can support your wellness goals.
-                  </p>
-                </div>
-                <button className="mt-4 w-full rounded-full border border-brand-600/40 px-3 py-1 text-xs font-semibold text-brand-700 hover:border-brand-700/70">
-                  Learn More
-                </button>
+        {/* THERAPIES */}
+        <section className="py-24 bg-white">
+          <div className="mx-auto max-w-6xl px-4">
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              className="space-y-16"
+            >
+              <div className="text-center space-y-4">
+                <h2 className="text-4xl font-black text-slate-900">
+                  Popular Therapies
+                </h2>
+                <p className="text-slate-500 font-medium">
+                  Explore treatments tailored to your wellness goals.
+                </p>
               </div>
-            ))}
+
+              <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+                {[
+                  {
+                    name: "Acupuncture",
+                    description:
+                      "Traditional Chinese medicine to balance energy flow.",
+                    icon: <Activity className="text-brand-600" />,
+                  },
+                  {
+                    name: "Ayurveda",
+                    description:
+                      "Ancient Indian system of integrative medicine.",
+                    icon: <Heart className="text-rose-500" />,
+                  },
+                  {
+                    name: "Chiropractic",
+                    description:
+                      "Expert spinal adjustments for nerve system health.",
+                    icon: <Star className="text-amber-500" />,
+                  },
+                ].map((therapy) => (
+                  <motion.div
+                    key={therapy.name}
+                    variants={itemVariants}
+                    whileHover={{ y: -10 }}
+                    className="rounded-3xl bg-[#F8FAFC] p-8 shadow-lg border transition"
+                  >
+                    <div className="mb-4">{therapy.icon}</div>
+                    <h3 className="text-xl font-bold text-slate-900 mb-2">
+                      {therapy.name}
+                    </h3>
+                    <p className="text-slate-500 text-sm">
+                      {therapy.description}
+                    </p>
+                    <button className="flex items-center gap-2 mt-4 text-sm font-bold text-brand-600 hover:gap-3 transition">
+                      Explore <ChevronRight size={16} />
+                    </button>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+          </div>
+        </section>
+
+        {/* CTA */}
+        <section className="py-24 bg-brand-600 text-white text-center">
+          <div className="max-w-3xl mx-auto px-4">
+            <Heart
+              size={40}
+              className="mx-auto mb-6"
+              fill="currentColor"
+            />
+            <h2 className="text-4xl font-black mb-4">
+              Ready to Start Your Wellness Journey?
+            </h2>
+            <p className="mb-8 text-brand-100">
+              Join thousands on the path to holistic healing.
+            </p>
+            <Link
+              to="/register"
+              className="inline-block bg-white text-brand-600 px-8 py-4 rounded-2xl font-bold shadow hover:bg-brand-50 transition"
+            >
+              Create Your Account
+            </Link>
           </div>
         </section>
       </main>
-    </div>
-  )
-}
 
+      <footer className="py-10 border-t bg-white text-center text-slate-400 text-sm">
+        © 2026 Wellness Hub Marketplace. All rights reserved.
+      </footer>
+    </div>
+  );
+}
