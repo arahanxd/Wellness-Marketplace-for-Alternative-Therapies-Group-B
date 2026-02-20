@@ -142,6 +142,7 @@ http://localhost:5173
 
 ## 📁 Project Structure
 
+```text
 backend/
 │
 ├── uploads/degrees/
@@ -167,6 +168,7 @@ frontend/
 │   ├── constants/
 │   ├── pages/
 └── wellness_marketplace.sql
+```
 
 ## 🔒 Security Features
 
