@@ -1,55 +1,223 @@
-## Wellness Hub – Image Wellness Marketplace
+Wellness Marketplace for Alternative Therapies
 
-Full‑stack skeleton for a wellness marketplace with separate dashboards for **patient**, **practitioner**, and **admin**, plus **landing**, **login**, and **registration** pages.
+React • TypeScript • Spring Boot • MySQL • Java
 
-- **Frontend**: React + Vite + TypeScript + Tailwind CSS (`frontend/`)
-- **Backend**: Spring Boot (Java 17) + JWT auth + WebSocket STOMP (`backend/`)
-- **Database**: MySQL
+Milestone 1 – Practitioner & User Profiles Module
 
-### Frontend
+A full-stack web application that enables users to register as Clients or Practitioners, manage profiles, and implement a secure practitioner verification system.
 
-```bash
+👥 Team Members
+
+Aditi – Backend Developer
+
+Arahan Jain – Frontend Developer and Tester
+
+Hemamalini – Backend Developer
+
+Poojitha – Backend Developer
+
+Thanga Kumar – Backend Developer and Tester
+
+Sudhan – Frontend Developer
+
+📋 Table of Contents
+
+Problem Statement
+
+Milestone 1 Features
+
+Tech Stack
+
+Prerequisites
+
+Installation
+
+Database Setup
+
+Configuration
+
+Running the Application
+
+Project Structure
+
+Security Features
+
+🎯 Problem Statement (Module 1)
+
+In the alternative therapy ecosystem, users often struggle to:
+
+Identify verified practitioners
+
+Register securely with role-based access
+
+Manage professional profiles
+
+Maintain authentication and session security
+
+This module focuses on building the foundational authentication and profile management system required for a scalable wellness marketplace.
+
+🚀 Milestone 1 (Week 1–2)
+Implemented:
+
+✅ Registration & Login with JWT Authentication
+✅ Role-based access (CLIENT, PROVIDER, ADMIN)
+✅ Practitioner profile creation
+✅ Specialization tagging
+✅ Practitioner document upload
+✅ Admin verification workflow
+✅ User dashboard with session history structure
+
+🛠️ Tech Stack
+Frontend
+
+React 18
+
+TypeScript
+
+Vite
+
+Tailwind CSS
+
+Backend
+
+Spring Boot 3
+
+Spring Security
+
+JWT Authentication
+
+Spring Data JPA
+
+Lombok
+
+Database
+
+MySQL 8
+
+📦 Prerequisites
+
+Java 17+
+
+Node.js 18+
+
+npm
+
+MySQL 8+
+
+Maven
+
+Git
+
+🚀 Installation
+git clone <your-repository-url>
+cd Wellness-Marketplace-for-Alternative-Therapies
+🗄️ Database Setup
+
+Open MySQL and run:
+
+CREATE DATABASE wellness_marketplace;
+
+If a database dump is provided:
+
+wellness_marketplace.sql
+
+Import it via:
+
+MySQL Workbench → Server → Data Import → Select File → Start Import
+
+⚠️ Important: Database Credentials
+
+The project uses:
+
+Username: ***REMOVED***
+Password: ***REMOVED***123
+
+If your MySQL credentials are different, update:
+
+backend/src/main/resources/application.properties
+
+Modify:
+
+spring.datasource.username=YOUR_MYSQL_USERNAME
+spring.datasource.password=YOUR_MYSQL_PASSWORD
+
+Then restart the backend server.
+
+▶ Running the Application
+Start Backend
+cd backend
+mvn spring-boot:run
+
+If it doesn’t start properly, run:
+
+mvn clean spring-boot:run
+
+Backend runs at:
+
+http://localhost:8080
+Start Frontend
 cd frontend
 npm install
-npm run dev   # http://localhost:5173
-```
+npm run dev
 
-Key routes:
+Frontend runs at:
 
-- `/` – marketing landing page (matches provided design)
-- `/login` – login (role selector)
-- `/register` – registration (role + location stub)
-- `/dashboard/user` – patient dashboard
-- `/dashboard/practitioner` – practitioner dashboard
-- `/dashboard/admin` – admin dashboard
+http://localhost:5173
+📁 Project Structure
+backend/
+│
+├── uploads/degrees/
+├── src/main/resources/
+├── src/main/java/com/wellness/backend/
+│   ├── config/
+│   ├── controller/
+│   ├── dto/
+│   ├── exception/
+│   ├── model/
+│   ├── repository/
+│   ├── service/
+│   ├── user/
+│   ├── util/
+│   └── WellnessBackendApplication.java
+│
+frontend/
+│
+├── src/
+│   ├── api/
+│   ├── assets/
+│   ├── components/
+│   ├── constants/
+│   ├── pages/
+│
+└── wellness_marketplace.sql
+🔒 Security Features
 
-### Backend
+BCrypt password encryption
 
-Prerequisite: Java 17+, Maven installed, and a running MySQL instance.
+JWT-based stateless authentication
 
-1. Update DB credentials and JWT secret in `backend/src/main/resources/application.properties`.
-2. From `backend/`:
+Role-based authorization
 
-```bash
-mvn clean package
-mvn spring-boot:run
-```
+Secure practitioner verification workflow
 
-Main pieces:
+🏆 Milestone 1 Outcome
 
-- `WellnessBackendApplication` – Spring Boot entry point
-- `user` package – `UserEntity`, `UserRole`, `UserRepository`
-- `auth` package – `AuthController`, DTOs, register/login returning **access + refresh JWT tokens**
-- `security` package – `JwtService`, `JwtAuthenticationFilter`, `SecurityConfig` (stateless, CORS for `http://localhost:5173`)
-- `realtime` package – `WebSocketConfig` exposes STOMP endpoint at `/ws` with `/app` prefix and `/topic` broker
+Functional Login/Register system
 
-### Maps & Location (frontend hooks)
+Profile setup page
 
-- `RegisterPage` includes a **“Use current location”** button – wire it to `navigator.geolocation.getCurrentPosition`.
-- For Google Maps, include the JS API (with your key) in `index.html` and render a map component where desired (e.g., in dashboards).
+Practitioner verification module
 
-### Real‑time Messaging
+Role-based dashboards foundation
 
-- Backend exposes a STOMP/WebSocket endpoint at `/ws` (`WebSocketConfig`).
-- On the frontend, add `@stomp/stompjs` or a similar client and connect to `ws://localhost:8080/ws` to build real‑time patient–practitioner chat or admin support.
+📌 Backlog (Upcoming Features)
 
+The following features are planned for future milestones:
+
+Products tab where practitioners can list and sell their wellness products (e.g., medicines, therapy-related items).
+
+Users will be able to browse and purchase these products.
+
+Product order history tracking for users.
+
+Sales and order management history for practitioners.
