@@ -140,6 +140,10 @@ npm run dev
 Frontend runs at : 
 http://localhost:5173
 
+## Admin Details
+
+You will find admin credentials in backend/.env file
+
 ## 📁 Project Structure
 
 ```text
