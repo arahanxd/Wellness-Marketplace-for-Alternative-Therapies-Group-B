@@ -1,0 +1,40 @@
+# ========================
+# ENV FILES
+# ========================
+.env
+backend/.env
+
+# ========================
+# JAVA / SPRING
+# ========================
+backend/target/
+target/
+*.class
+*.log
+*.jar
+
+# ========================
+# UPLOADS
+# ========================
+backend/uploads/
+
+# ========================
+# NODE / REACT
+# ========================
+frontend/node_modules/
+node_modules/
+dist/
+build/
+
+# ========================
+# IDE FILES
+# ========================
+.idea/
+.vscode/
+*.iml
+
+# ========================
+# OS FILES
+# ========================
+.DS_Store
+Thumbs.db
