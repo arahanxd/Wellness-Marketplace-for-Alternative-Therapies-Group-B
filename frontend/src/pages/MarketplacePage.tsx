@@ -13,6 +13,8 @@ export function MarketplacePage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [bookingPractitioner, setBookingPractitioner] = useState<Profile | null>(null);
     const [bookingNotes, setBookingNotes] = useState('');
+    const [bookingDate, setBookingDate] = useState('');
+    const [bookingTime, setBookingTime] = useState('');
     const [loading, setLoading] = useState(false);
     const [fetchLoading, setFetchLoading] = useState(true);
     const [message, setMessage] = useState('');
@@ -40,11 +42,18 @@ export function MarketplacePage() {
 
     const handleBook = async () => {
         if (!bookingPractitioner || !profile) return;
+        if (!bookingDate || !bookingTime) {
+            setMessage('Please select a date and time.');
+            setTimeout(() => setMessage(''), 4000);
+            return;
+        }
         setLoading(true);
         try {
+            const selectedDateTime = `${bookingDate}T${bookingTime}`;
             const bookingData: Booking = {
                 userId: profile.id,
                 practitionerId: bookingPractitioner.id,
+                bookingDate: new Date(selectedDateTime).toISOString(),
                 status: 'PENDING',
                 notes: bookingNotes
             };
@@ -52,10 +61,17 @@ export function MarketplacePage() {
             setMessage(`Successfully requested booking with ${bookingPractitioner.name}`);
             setBookingPractitioner(null);
             setBookingNotes('');
+            setBookingDate('');
+            setBookingTime('');
             setTimeout(() => setMessage(''), 4000);
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
-            setMessage('Failed to book session. Please try again.');
+            if (err.response?.status === 409) {
+                setMessage('This time slot is already booked. Please select another time.');
+            } else {
+                setMessage('Failed to book session. Please try again.');
+            }
+            setTimeout(() => setMessage(''), 4000);
         } finally {
             setLoading(false);
         }
@@ -207,6 +223,27 @@ export function MarketplacePage() {
                                 </div>
 
                                 <div className="space-y-4">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-xs font-black uppercase tracking-widest text-slate-400 mb-2">Select Date</label>
+                                            <input
+                                                type="date"
+                                                min={new Date().toISOString().split('T')[0]}
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-slate-700 focus:outline-none focus:border-brand-400 font-medium"
+                                                value={bookingDate}
+                                                onChange={(e) => setBookingDate(e.target.value)}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-black uppercase tracking-widest text-slate-400 mb-2">Select Time</label>
+                                            <input
+                                                type="time"
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-slate-700 focus:outline-none focus:border-brand-400 font-medium"
+                                                value={bookingTime}
+                                                onChange={(e) => setBookingTime(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
                                     <div>
                                         <label className="block text-xs font-black uppercase tracking-widest text-slate-400 mb-2">Message / Notes</label>
                                         <textarea

@@ -1,12 +1,12 @@
 package com.wellness.backend.controller;
 
-import com.wellness.backend.model.BookingEntity;
-import com.wellness.backend.repository.BookingRepository;
+import com.wellness.backend.dto.BookingRequestDTO;
+import com.wellness.backend.dto.BookingResponseDTO;
+import com.wellness.backend.service.BookingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -15,22 +15,20 @@ import java.util.List;
 @CrossOrigin(origins = "http://localhost:5173")
 public class BookingController {
 
-    private final BookingRepository bookingRepository;
+    private final BookingService bookingService;
 
     @PostMapping
-    public ResponseEntity<BookingEntity> createBooking(@RequestBody BookingEntity booking) {
-        booking.setBookingDate(LocalDateTime.now());
-        booking.setStatus("PENDING");
-        return ResponseEntity.ok(bookingRepository.save(booking));
+    public ResponseEntity<BookingResponseDTO> createBooking(@RequestBody BookingRequestDTO request) {
+        return ResponseEntity.ok(bookingService.createBooking(request));
     }
 
-    @GetMapping("/user/{userId}")
-    public ResponseEntity<List<BookingEntity>> getUserBookings(@PathVariable Long userId) {
-        return ResponseEntity.ok(bookingRepository.findByUserId(userId));
+    @GetMapping("/client/{clientId}")
+    public ResponseEntity<List<BookingResponseDTO>> getClientUpcomingBookings(@PathVariable Long clientId) {
+        return ResponseEntity.ok(bookingService.getClientUpcomingBookings(clientId));
     }
 
     @GetMapping("/practitioner/{practitionerId}")
-    public ResponseEntity<List<BookingEntity>> getPractitionerBookings(@PathVariable Long practitionerId) {
-        return ResponseEntity.ok(bookingRepository.findByPractitionerId(practitionerId));
+    public ResponseEntity<List<BookingResponseDTO>> getPractitionerUpcomingBookings(@PathVariable Long practitionerId) {
+        return ResponseEntity.ok(bookingService.getPractitionerUpcomingBookings(practitionerId));
     }
 }
