@@ -1,5 +1,7 @@
 package com.wellness.backend.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -10,6 +12,7 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class UserEntity {
 
     @Id
@@ -22,6 +25,7 @@ public class UserEntity {
     @Column(nullable = false, unique = true)
     private String email;
 
+    @JsonIgnore   // 🔥 NEVER expose password in API response
     @Column(nullable = false)
     private String password;
 
@@ -44,12 +48,15 @@ public class UserEntity {
     @Column(name = "email_verified", columnDefinition = "BOOLEAN DEFAULT FALSE")
     private boolean emailVerified = false;
 
+    @JsonIgnore
     @Column(name = "verification_token")
     private String verificationToken;
 
+    @JsonIgnore
     @Column(name = "otp")
     private String otp;
 
+    @JsonIgnore
     @Column(name = "otp_expiry")
     private java.time.LocalDateTime otpExpiry;
 
@@ -58,7 +65,7 @@ public class UserEntity {
 
     public boolean isVerified() {
         return "VERIFIED".equalsIgnoreCase(this.verificationStatus) ||
-                "APPROVED".equalsIgnoreCase(this.verificationStatus) ||
-                this.verified;
+               "APPROVED".equalsIgnoreCase(this.verificationStatus) ||
+               this.verified;
     }
 }

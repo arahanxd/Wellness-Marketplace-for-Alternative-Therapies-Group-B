@@ -28,6 +28,18 @@ public class GlobalExceptionHandler {
                                                 "Database error: " + e.getMostSpecificCause().getMessage()));
         }
 
+        @ExceptionHandler(ResourceNotFoundException.class)
+        public ResponseEntity<Map<String, String>> handleResourceNotFoundException(ResourceNotFoundException e) {
+                return ResponseEntity.status(org.springframework.http.HttpStatus.NOT_FOUND)
+                                .body(Collections.singletonMap("error", e.getMessage()));
+        }
+
+        @ExceptionHandler(ForbiddenActionException.class)
+        public ResponseEntity<Map<String, String>> handleForbiddenActionException(ForbiddenActionException e) {
+                return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN)
+                                .body(Collections.singletonMap("error", e.getMessage()));
+        }
+
         @ExceptionHandler(BookingConflictException.class)
         public ResponseEntity<Map<String, String>> handleBookingConflictException(BookingConflictException e) {
                 return ResponseEntity.status(org.springframework.http.HttpStatus.CONFLICT)

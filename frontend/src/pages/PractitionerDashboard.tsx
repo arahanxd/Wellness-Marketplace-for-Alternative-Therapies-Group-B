@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { api, type Profile, type Booking } from '../api/api';
+import { api, type Profile, type Booking } from '../api';
 import { SPECIALIZATIONS } from '../constants/specializations';
 import { DashboardLayout } from '../components/DashboardLayout';
 import {
   CheckCircle2, XCircle, FileText, Calendar, User, LayoutDashboard, Settings,
-  CloudUpload, ArrowRight, ShieldCheck, Activity, Globe, MessageSquare, RefreshCw, AlertCircle
+  CloudUpload, ArrowRight, ShieldCheck, Activity, Globe, MessageSquare, RefreshCw, AlertCircle,
+  Package, ClipboardList
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -49,9 +50,10 @@ export function PractitionerDashboard() {
   const sidebarItems = [
     { label: 'Overview', onClick: () => setActiveTab('overview'), active: activeTab === 'overview', icon: <LayoutDashboard size={20} /> },
     { label: 'Marketplace', path: '/marketplace', icon: <Globe size={20} /> },
+    { label: 'My Products', path: '/my-products', icon: <Package size={20} /> },
+    { label: 'Product Orders', path: '/product-orders', icon: <ClipboardList size={20} /> },
     { label: 'Profile', onClick: () => setActiveTab('profile'), active: activeTab === 'profile', icon: <User size={20} /> },
     { label: 'Verification', onClick: () => setActiveTab('verification'), active: activeTab === 'verification', icon: <ShieldCheck size={20} /> },
-    { label: 'Settings', path: '#', icon: <Settings size={20} /> },
   ];
 
   useEffect(() => { fetchProfile(); }, []);
@@ -157,8 +159,8 @@ export function PractitionerDashboard() {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             className={`p-6 rounded-3xl border flex items-start gap-4 ${profile.verificationStatus === 'REJECTED'
-                ? 'bg-rose-50 border-rose-200'
-                : 'bg-orange-50 border-orange-200'
+              ? 'bg-rose-50 border-rose-200'
+              : 'bg-orange-50 border-orange-200'
               }`}
           >
             <div className={`p-2 rounded-xl flex-shrink-0 ${profile.verificationStatus === 'REJECTED' ? 'bg-rose-100' : 'bg-orange-100'}`}>
@@ -229,8 +231,8 @@ export function PractitionerDashboard() {
                             </td>
                             <td className="py-6">
                               <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-sm ${booking.status === 'CONFIRMED' ? 'border-emerald-200 text-emerald-600 bg-emerald-50' :
-                                  booking.status === 'CANCELLED' ? 'border-rose-200 text-rose-600 bg-rose-50' :
-                                    'border-brand-200 text-brand-600 bg-brand-50'
+                                booking.status === 'CANCELLED' ? 'border-rose-200 text-rose-600 bg-rose-50' :
+                                  'border-brand-200 text-brand-600 bg-brand-50'
                                 }`}>
                                 {booking.status}
                               </span>

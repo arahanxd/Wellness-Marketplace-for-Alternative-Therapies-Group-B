@@ -23,7 +23,7 @@ export interface Profile {
   id: number
   name: string
   email: string
-  password?: string // Added for profile updates
+  password?: string
   role: string
   city?: string
   country?: string
@@ -32,6 +32,7 @@ export interface Profile {
   degreeFile?: string
   verified?: boolean
   emailVerified: boolean
+  adminComment?: string
 }
 
 export interface Booking {
@@ -43,11 +44,32 @@ export interface Booking {
   notes?: string
 }
 
+export interface Product {
+  productId?: number
+  name: string
+  description: string
+  price: number
+  imageUrl?: string
+  providerId: number
+  createdAt?: string
+}
+
+export interface Order {
+  orderId?: number
+  userId: number
+  productId: number
+  quantity: number
+  totalPrice: number
+  status?: string
+  deliveryStatus?: string
+  orderDate?: string
+  product?: Product
+}
+
 const apiClient = axios.create({ baseURL: API_BASE, withCredentials: true })
 
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    // 🔥 Skip Authorization header for public auth endpoints
     const publicPaths = ['/auth/login', '/auth/register', '/auth/verify-otp', '/auth/resend-otp', '/auth/forgot-password']
     const isPublic = publicPaths.some(path => config.url?.endsWith(path))
 
@@ -65,7 +87,6 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    // 🔥 Only redirect to login if we get a 401/403 on a NON-public endpoint
     const publicPaths = ['/auth/', '/degree/']
     const isPublic = publicPaths.some(path => error.config?.url?.includes(path))
 
@@ -145,6 +166,56 @@ export const api = {
 
   async getAllPractitioners(): Promise<Profile[]> {
     const response = await apiClient.get('/admin/users')
+    return response.data
+  },
+
+  async getApprovedPractitioners(): Promise<Profile[]> {
+    const response = await apiClient.get('/admin/users?status=APPROVED')
+    return response.data
+  },
+
+  // Products
+  async getProducts(): Promise<Product[]> {
+    const response = await apiClient.get('/products')
+    return response.data
+  },
+
+  async getProviderProducts(providerId: number): Promise<Product[]> {
+    const response = await apiClient.get(`/products/provider/${providerId}`)
+    return response.data
+  },
+
+  async createProduct(data: FormData): Promise<Product> {
+    const response = await apiClient.post('/products', data, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    return response.data
+  },
+
+  async updateProduct(id: number, data: FormData): Promise<Product> {
+    const response = await apiClient.put(`/products/${id}`, data, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    return response.data
+  },
+
+  async deleteProduct(id: number, providerId: number) {
+    await apiClient.delete(`/products/${id}?providerId=${providerId}`)
+  },
+
+  // Orders
+  async createOrder(data: Order): Promise<Order> {
+    const response = await apiClient.post('/orders', data)
+    return response.data
+  },
+
+  async getUserOrders(userId: number): Promise<Order[]> {
+    const response = await apiClient.get(`/orders/user/${userId}`)
+    return response.data
+  },
+
+  async getProviderOrders(providerId: number): Promise<Order[]> {
+    const response = await apiClient.get(`/orders/provider/${providerId}`)
     return response.data
   },
 

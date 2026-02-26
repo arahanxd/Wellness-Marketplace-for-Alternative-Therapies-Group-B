@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { DashboardLayout } from '../components/DashboardLayout'
-import { api, type Profile, type Booking } from '../api/api'
+import { api, type Profile, type Booking } from '../api'
 import {
   Calendar, LayoutDashboard, ShoppingBag, MessageSquare, Sparkles, Clock,
   Compass, Activity, User, Mail, MapPin, Globe, Shield, Save, CheckCircle2,
-  XCircle, RefreshCw, Star, ArrowRight
+  XCircle, RefreshCw, Star, ArrowRight, ClipboardList
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Link } from 'react-router-dom'
@@ -119,9 +119,9 @@ export function UserDashboard() {
       sidebarItems={[
         { label: 'Dashboard', active: activeTab === 'overview', path: '#', onClick: () => setActiveTab('overview'), icon: <LayoutDashboard size={20} /> },
         { label: 'Marketplace', path: '/marketplace', icon: <Compass size={20} /> },
-        { label: 'My Sessions', path: '#', icon: <Calendar size={20} /> },
+        { label: 'Products', path: '/products', icon: <ShoppingBag size={20} /> },
+        { label: 'Product Orders', path: '/product-orders', icon: <ClipboardList size={20} /> },
         { label: 'Profile', active: activeTab === 'profile', path: '#', onClick: () => setActiveTab('profile'), icon: <User size={20} /> },
-        { label: 'Product Store', path: '#', icon: <ShoppingBag size={20} /> },
       ]}
     >
       <AnimatePresence mode="wait">
@@ -281,8 +281,8 @@ export function UserDashboard() {
                         </div>
                       </div>
                       <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase border shadow-sm ${booking.status === 'CONFIRMED' ? 'border-emerald-200 text-emerald-600 bg-emerald-50' :
-                          booking.status === 'CANCELLED' ? 'border-rose-200 text-rose-600 bg-rose-50' :
-                            'border-brand-200 text-brand-600 bg-brand-50'
+                        booking.status === 'CANCELLED' ? 'border-rose-200 text-rose-600 bg-rose-50' :
+                          'border-brand-200 text-brand-600 bg-brand-50'
                         }`}>
                         {booking.status}
                       </span>
