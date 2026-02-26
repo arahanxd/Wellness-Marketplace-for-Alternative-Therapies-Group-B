@@ -165,12 +165,12 @@ export const api = {
   },
 
   async getAllPractitioners(): Promise<Profile[]> {
-    const response = await apiClient.get('/admin/users')
+    const response = await apiClient.get('/user/all-practitioners')
     return response.data
   },
 
   async getApprovedPractitioners(): Promise<Profile[]> {
-    const response = await apiClient.get('/admin/users?status=APPROVED')
+    const response = await apiClient.get('/user/practitioners')
     return response.data
   },
 
