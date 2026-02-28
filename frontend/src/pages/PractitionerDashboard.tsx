@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { api, type Profile, type Booking } from '../api';
+import { api, type Profile, type Booking, type SessionBooking, type Notification } from '../api';
 import { SPECIALIZATIONS } from '../constants/specializations';
 import { DashboardLayout } from '../components/DashboardLayout';
+import { SessionCalendar } from '../components/SessionCalendar';
+import { SessionReminderBanner } from '../components/SessionReminderBanner';
 import {
-  CheckCircle2, XCircle, FileText, Calendar, User, LayoutDashboard, Settings,
+  CheckCircle2, XCircle, FileText, Calendar, User, LayoutDashboard,
   CloudUpload, ArrowRight, ShieldCheck, Activity, Globe, MessageSquare, RefreshCw, AlertCircle,
-  Package, ClipboardList
+  Package, ClipboardList, Bell
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -38,17 +40,46 @@ function VerificationStatusBadge({ status }: { status?: string }) {
   )
 }
 
+const getSessionStatus = (session: SessionBooking): 'Pending' | 'Ongoing' | 'Completed' => {
+  const { sessionDate, startTime, endTime } = session
+  if (!sessionDate || !startTime || !endTime) return 'Pending'
+
+  const now = new Date()
+  const start = new Date(`${sessionDate}T${startTime}`)
+  const end = new Date(`${sessionDate}T${endTime}`)
+
+  if (now < start) return 'Pending'
+  if (now >= start && now <= end) return 'Ongoing'
+  return 'Completed'
+}
+
+const getSessionStatusClasses = (status: ReturnType<typeof getSessionStatus>) => {
+  if (status === 'Pending') return 'bg-yellow-100 text-yellow-700'
+  if (status === 'Ongoing') return 'bg-blue-100 text-blue-700'
+  return 'bg-green-100 text-green-700'
+}
+
 export function PractitionerDashboard() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [sessions, setSessions] = useState<SessionBooking[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
   const [degreeFile, setDegreeFile] = useState<File | null>(null);
   const [message, setMessage] = useState('');
-  const [activeTab, setActiveTab] = useState<'overview' | 'profile' | 'verification'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'requests' | 'sessions' | 'profile' | 'verification'>('overview');
   const [editForm, setEditForm] = useState<Partial<Profile>>({});
+  const [rescheduleSession, setRescheduleSession] = useState<SessionBooking | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState<string>('');
+  const [rescheduleStartTime, setRescheduleStartTime] = useState<string>('');
+  const [rescheduleEndTime, setRescheduleEndTime] = useState<string>('');
+  const [rescheduleMessage, setRescheduleMessage] = useState<string>('');
+  const [sessionActionLoadingId, setSessionActionLoadingId] = useState<number | null>(null);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   const sidebarItems = [
     { label: 'Overview', onClick: () => setActiveTab('overview'), active: activeTab === 'overview', icon: <LayoutDashboard size={20} /> },
+    { label: 'Booking Requests', onClick: () => setActiveTab('requests'), active: activeTab === 'requests', icon: <Calendar size={20} /> },
     { label: 'Marketplace', path: '/marketplace', icon: <Globe size={20} /> },
     { label: 'My Products', path: '/my-products', icon: <Package size={20} /> },
     { label: 'Product Orders', path: '/product-orders', icon: <ClipboardList size={20} /> },
@@ -56,7 +87,10 @@ export function PractitionerDashboard() {
     { label: 'Verification', onClick: () => setActiveTab('verification'), active: activeTab === 'verification', icon: <ShieldCheck size={20} /> },
   ];
 
-  useEffect(() => { fetchProfile(); }, []);
+  useEffect(() => {
+    fetchProfile();
+    fetchNotifications();
+  }, []);
 
   const fetchProfile = async () => {
     try {
@@ -71,9 +105,92 @@ export function PractitionerDashboard() {
       if (res.id) {
         const bookingRes = await api.getPractitionerBookings(res.id);
         setBookings(bookingRes);
+        const sessionRes = await api.getProviderSessions(res.id);
+        setSessions(sessionRes);
       }
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const fetchNotifications = async () => {
+    try {
+      const data = await api.getNotifications();
+      setNotifications(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const bookingRequests = sessions.filter((s) => s.status === 'PENDING');
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  const handleNotificationClick = async (notification: Notification) => {
+    if (!notification.read) {
+      try {
+        await api.markNotificationRead(notification.id);
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === notification.id ? { ...n, read: true } : n))
+        );
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  };
+
+  const handleAcceptSession = async (session: SessionBooking) => {
+    if (!session.id) return;
+    setSessionActionLoadingId(session.id);
+    try {
+      const updated = await api.acceptSession(session.id);
+      setSessions((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+      setMessage('Session accepted successfully');
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSessionActionLoadingId(null);
+    }
+  };
+
+  const handleRejectSession = async (session: SessionBooking) => {
+    if (!session.id) return;
+    setSessionActionLoadingId(session.id);
+    try {
+      const updated = await api.rejectSession(session.id);
+      setSessions((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+      setMessage('Session rejected');
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSessionActionLoadingId(null);
+    }
+  };
+
+  const openRescheduleModal = (session: SessionBooking) => {
+    setRescheduleSession(session);
+    setRescheduleDate(session.sessionDate);
+    setRescheduleStartTime(session.startTime);
+    setRescheduleEndTime(session.endTime);
+    setRescheduleMessage('');
+  };
+
+  const handleConfirmReschedule = async () => {
+    if (!rescheduleSession || !rescheduleSession.id) return;
+    setSessionActionLoadingId(rescheduleSession.id);
+    try {
+      const updated = await api.rescheduleSession(rescheduleSession.id, {
+        newSessionDate: rescheduleDate || undefined,
+        newStartTime: rescheduleStartTime || undefined,
+        newEndTime: rescheduleEndTime || undefined,
+        providerMessage: rescheduleMessage || 'Suggested a new time slot',
+      });
+      setSessions((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+      setRescheduleSession(null);
+      setMessage('Reschedule suggestion sent to patient');
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSessionActionLoadingId(null);
     }
   };
 
@@ -136,7 +253,9 @@ export function PractitionerDashboard() {
   );
 
   return (
-    <DashboardLayout sidebarItems={sidebarItems}>
+    <>
+      <SessionReminderBanner fetchReminders={api.getUpcomingSessionReminders} />
+      <DashboardLayout sidebarItems={sidebarItems}>
       <div className="space-y-10">
         {/* Header */}
         <motion.header
@@ -150,7 +269,58 @@ export function PractitionerDashboard() {
             </h2>
             <p className="text-white/70 font-medium">Manage your professional credentials and bookings.</p>
           </div>
-          <VerificationStatusBadge status={profile.verificationStatus} />
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowNotifications((prev) => !prev)}
+                className="relative p-3 rounded-2xl bg-white/10 hover:bg-white/20 text-white transition-colors"
+              >
+                <Bell size={18} />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-rose-500 text-[10px] font-black flex items-center justify-center">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+              {showNotifications && (
+                <div className="absolute right-0 mt-2 w-72 bg-white text-slate-900 rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-20">
+                  <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                    <span className="text-xs font-black uppercase tracking-widest text-slate-500">
+                      Notifications
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-400">
+                      {unreadCount} unread
+                    </span>
+                  </div>
+                  <div className="max-h-72 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="px-4 py-6 text-xs text-slate-400 text-center">
+                        No notifications yet.
+                      </div>
+                    ) : (
+                      notifications.map((n) => (
+                        <button
+                          key={n.id}
+                          type="button"
+                          onClick={() => handleNotificationClick(n)}
+                          className={`w-full text-left px-4 py-3 text-xs border-b border-slate-50 last:border-b-0 ${
+                            n.read ? 'bg-white text-slate-500' : 'bg-slate-50 text-slate-800'
+                          } hover:bg-slate-100 transition-colors`}
+                        >
+                          <p className="font-bold leading-snug">{n.message}</p>
+                          <p className="text-[10px] text-slate-400 mt-1">
+                            {new Date(n.createdAt).toLocaleString()}
+                          </p>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+            <VerificationStatusBadge status={profile.verificationStatus} />
+          </div>
         </motion.header>
 
         {/* Admin Comment Banner (shown when rejected or reupload requested) */}
@@ -250,6 +420,267 @@ export function PractitionerDashboard() {
                       )}
                     </tbody>
                   </table>
+                </div>
+              </section>
+            </motion.div>
+          )}
+
+          {activeTab === 'requests' && (
+            <motion.div key="requests" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+              <section className="bg-white p-10 rounded-[3rem] border border-brand-100/50 shadow-xl shadow-brand-500/5 mb-8">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-2xl font-black flex items-center gap-3 text-slate-900">
+                    <Calendar size={24} className="text-brand-600" /> Booking Requests
+                  </h3>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                    {bookingRequests.length} pending
+                  </p>
+                </div>
+
+                {bookingRequests.length === 0 ? (
+                  <div className="py-12 text-center">
+                    <Calendar size={40} className="mx-auto text-slate-200 mb-4" />
+                    <p className="text-slate-400 font-black uppercase tracking-widest text-[10px]">
+                      No booking requests at the moment
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {bookingRequests.map((request, idx) => (
+                      <motion.div
+                        key={request.id ?? idx}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: idx * 0.04 }}
+                        className="p-6 bg-slate-50/60 rounded-3xl border border-slate-100 flex flex-col md:flex-row md:items-center md:justify-between gap-4 hover:border-brand-200 hover:bg-white hover:shadow-lg hover:shadow-brand-500/5 transition-all"
+                      >
+                        <div className="flex items-start gap-4 flex-1">
+                          <div className="h-12 w-12 rounded-2xl bg-brand-50 flex items-center justify-center text-brand-600 font-black text-sm">
+                            {request.clientName ? request.clientName[0] : 'P'}
+                          </div>
+                          <div className="space-y-1">
+                            <p className="font-black text-slate-900 leading-tight">
+                              {request.clientName ?? `Patient #${request.clientId}`}
+                            </p>
+                            <p className="text-xs text-slate-500 font-semibold">
+                              {request.sessionDate}{' '}
+                              {request.startTime && request.endTime ? `${request.startTime} - ${request.endTime}` : ''}
+                              {request.duration ? ` · ${request.duration} mins` : ''}
+                            </p>
+                            <p className="text-xs text-slate-500 mt-1 line-clamp-2">
+                              {request.issueDescription}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleAcceptSession(request)}
+                            disabled={sessionActionLoadingId === request.id}
+                            className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                          >
+                            {sessionActionLoadingId === request.id ? 'Updating...' : 'Accept'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openRescheduleModal(request)}
+                            className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors"
+                          >
+                            Request Reschedule
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRejectSession(request)}
+                            disabled={sessionActionLoadingId === request.id}
+                            className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 transition-colors disabled:opacity-50"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              {/* Reschedule Modal */}
+              <AnimatePresence>
+                {rescheduleSession && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+                      onClick={() => setRescheduleSession(null)}
+                    />
+                    <motion.div
+                      initial={{ scale: 0.95, opacity: 0, y: 10 }}
+                      animate={{ scale: 1, opacity: 1, y: 0 }}
+                      exit={{ scale: 0.95, opacity: 0, y: 10 }}
+                      className="relative bg-white rounded-[2.5rem] w-full max-w-lg p-8 shadow-2xl border border-slate-100"
+                    >
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-xl font-black text-slate-900">Suggest New Time</h3>
+                        <button
+                          type="button"
+                          onClick={() => setRescheduleSession(null)}
+                          className="text-slate-400 hover:text-slate-600 text-sm font-bold"
+                        >
+                          Close
+                        </button>
+                      </div>
+                      <p className="text-xs text-slate-500 mb-4">
+                        Patient:{' '}
+                        <span className="font-bold text-slate-900">
+                          {rescheduleSession.clientName ?? `Patient #${rescheduleSession.clientId}`}
+                        </span>
+                      </p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                          <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+                            New Date
+                          </label>
+                          <input
+                            type="date"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-sm font-medium text-slate-700 focus:outline-none focus:border-brand-400"
+                            value={rescheduleDate}
+                            onChange={(e) => setRescheduleDate(e.target.value)}
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+                              Start Time
+                            </label>
+                            <input
+                              type="time"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-sm font-medium text-slate-700 focus:outline-none focus:border-brand-400"
+                              value={rescheduleStartTime}
+                              onChange={(e) => setRescheduleStartTime(e.target.value)}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+                              End Time
+                            </label>
+                            <input
+                              type="time"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-sm font-medium text-slate-700 focus:outline-none focus:border-brand-400"
+                              value={rescheduleEndTime}
+                              onChange={(e) => setRescheduleEndTime(e.target.value)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mb-4">
+                        <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
+                          Message to Patient
+                        </label>
+                        <textarea
+                          className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-sm font-medium text-slate-700 focus:outline-none focus:border-brand-400 min-h-[80px] resize-none"
+                          value={rescheduleMessage}
+                          onChange={(e) => setRescheduleMessage(e.target.value)}
+                          placeholder="Share why you are suggesting this new time and any context they should know."
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleConfirmReschedule}
+                        disabled={sessionActionLoadingId === rescheduleSession.id}
+                        className="w-full bg-brand-600 hover:bg-brand-700 text-white font-black py-3 rounded-2xl shadow-lg shadow-brand-600/20 transition-all disabled:opacity-50"
+                      >
+                        {sessionActionLoadingId === rescheduleSession.id ? 'Sending suggestion...' : 'Send Suggestion'}
+                      </button>
+                    </motion.div>
+                  </div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          )}
+
+          {activeTab === 'sessions' && (
+            <motion.div key="sessions" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+              <section className="bg-white p-10 rounded-[3rem] border border-brand-100/50 shadow-xl shadow-brand-500/5 mb-8">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-2xl font-black flex items-center gap-3 text-slate-900">
+                    <Calendar size={24} className="text-brand-600" /> Session Calendar
+                  </h3>
+                </div>
+                <SessionCalendar sessions={sessions} perspective="PROVIDER" />
+              </section>
+
+              <section className="bg-white p-10 rounded-[3rem] border border-brand-100/50 shadow-xl shadow-brand-500/5">
+                <div className="flex items-center justify-between mb-8">
+                  <h3 className="text-2xl font-black flex items-center gap-3 text-slate-900">
+                    <Calendar size={24} className="text-brand-600" /> Session History
+                  </h3>
+                </div>
+                <div className="space-y-4">
+                  {sessions.length > 0 ? (
+                    sessions
+                      .slice()
+                      .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
+                      .map((session, idx) => (
+                        <motion.div
+                          key={session.id ?? idx}
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: idx * 0.03 }}
+                          className="flex items-center justify-between p-6 bg-slate-50/50 rounded-3xl border border-slate-100 hover:border-brand-200 hover:bg-white hover:shadow-lg hover:shadow-brand-500/5 transition-all"
+                        >
+                          <div className="flex items-center gap-5">
+                            <div className="h-12 w-12 rounded-2xl bg-brand-50 flex items-center justify-center text-brand-600 font-black text-sm">
+                              {idx + 1}
+                            </div>
+                            <div>
+                              <p className="font-black text-slate-900 leading-tight">
+                                Session with {session.clientName ?? `Client #${session.clientId}`}
+                              </p>
+                              <p className="text-xs text-slate-500 font-semibold">
+                                {session.sessionDate}{' '}
+                                {session.startTime && session.endTime
+                                  ? `${session.startTime} - ${session.endTime}`
+                                  : ''}
+                                {session.duration ? ` · ${session.duration} mins` : ''}
+                              </p>
+                              <p className="text-xs text-slate-500 mt-1 line-clamp-2">
+                                {session.issueDescription}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end gap-2">
+                            {(() => {
+                              const status = getSessionStatus(session)
+                              return (
+                                <span
+                                  className={`px-3 py-1 rounded-full text-[11px] font-semibold ${getSessionStatusClasses(status)}`}
+                                >
+                                  {status}
+                                </span>
+                              )
+                            })()}
+                            {session.providerMessage && (
+                              <span className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded-xl px-3 py-1 max-w-xs text-right">
+                                {session.providerMessage}
+                              </span>
+                            )}
+                          </div>
+                        </motion.div>
+                      ))
+                  ) : (
+                    <div className="py-16 text-center">
+                      <div className="bg-slate-50 inline-block p-8 rounded-full mb-6 border border-slate-100">
+                        <Calendar size={40} className="text-slate-300" />
+                      </div>
+                      <p className="text-slate-400 font-black uppercase tracking-widest text-xs">
+                        No sessions found
+                      </p>
+                      <p className="text-slate-500 text-sm mt-2 font-medium">
+                        Your session history will appear here as you accept bookings.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </section>
             </motion.div>
@@ -458,5 +889,6 @@ export function PractitionerDashboard() {
         )}
       </div>
     </DashboardLayout>
+    </>
   );
 }

@@ -2,6 +2,7 @@ package com.wellness.backend.controller;
 
 import com.wellness.backend.dto.BookingRequestDTO;
 import com.wellness.backend.dto.BookingResponseDTO;
+import com.wellness.backend.model.BookingStatus;
 import com.wellness.backend.service.BookingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -33,7 +34,12 @@ public class BookingController {
     }
 
     @GetMapping("/practitioner/{practitionerId}")
-    public ResponseEntity<List<BookingResponseDTO>> getPractitionerUpcomingBookings(@PathVariable Long practitionerId) {
+    public ResponseEntity<List<BookingResponseDTO>> getPractitionerUpcomingBookings(
+            @PathVariable Long practitionerId,
+            @RequestParam(name = "status", required = false) BookingStatus status) {
+        if (status != null) {
+            return ResponseEntity.ok(bookingService.getPractitionerBookingsByStatus(practitionerId, status));
+        }
         return ResponseEntity.ok(bookingService.getPractitionerUpcomingBookings(practitionerId));
     }
 }

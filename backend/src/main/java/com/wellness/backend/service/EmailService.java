@@ -4,9 +4,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Recover;
-import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import lombok.extern.slf4j.Slf4j;
 
@@ -81,6 +79,53 @@ public class EmailService {
                 "Temporary Password: " + newPassword + "\n\n" +
                 "Please login and change your password as soon as possible for security reasons.\n" +
                 "Login here: http://localhost:5173/login");
+        sendEmail(message);
+    }
+
+    public void sendSessionReminderToClient(com.wellness.backend.model.SessionBookingEntity session) {
+        String to = session.getClient().getEmail();
+        String doctorName = session.getProvider().getName();
+        String date = session.getSessionDate().toString();
+        String time = session.getStartTime() + " - " + session.getEndTime();
+        String duration = session.getDuration() + " minutes";
+
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(fromEmail);
+        message.setTo(to);
+        message.setSubject("Session Reminder – Starts in 30 Minutes");
+        message.setText("Dear " + session.getClient().getName() + ",\n\n"
+                + "This is a reminder that your session with " + doctorName + " starts in 30 minutes.\n\n"
+                + "Date: " + date + "\n"
+                + "Time: " + time + "\n"
+                + "Duration: " + duration + "\n"
+                + "Issue Summary: " + session.getIssueDescription() + "\n\n"
+                + "You can manage your sessions by logging into the Wellness Hub portal.\n\n"
+                + "Best regards,\n"
+                + "Wellness Hub");
+        sendEmail(message);
+    }
+
+    public void sendSessionReminderToProvider(com.wellness.backend.model.SessionBookingEntity session) {
+        String to = session.getProvider().getEmail();
+        String patientName = session.getClient().getName();
+        String date = session.getSessionDate().toString();
+        String time = session.getStartTime() + " - " + session.getEndTime();
+        String duration = session.getDuration() + " minutes";
+
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(fromEmail);
+        message.setTo(to);
+        message.setSubject("Upcoming Session in 30 Minutes");
+        message.setText("Dear " + session.getProvider().getName() + ",\n\n"
+                + "You have an upcoming session starting in 30 minutes.\n\n"
+                + "Patient: " + patientName + "\n"
+                + "Date: " + date + "\n"
+                + "Time: " + time + "\n"
+                + "Duration: " + duration + "\n"
+                + "Issue Summary: " + session.getIssueDescription() + "\n\n"
+                + "Please log into your Wellness Hub practitioner portal to review details.\n\n"
+                + "Best regards,\n"
+                + "Wellness Hub");
         sendEmail(message);
     }
 

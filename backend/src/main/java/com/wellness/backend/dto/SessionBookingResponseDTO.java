@@ -1,0 +1,34 @@
+package com.wellness.backend.dto;
+
+import com.wellness.backend.model.SessionStatus;
+import lombok.Builder;
+import lombok.Data;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+
+@Data
+@Builder
+public class SessionBookingResponseDTO {
+
+    private Long id;
+    private Long clientId;
+    private String clientName;
+    private Long providerId;
+    private String providerName;
+
+    private LocalDate sessionDate;
+    private LocalTime startTime;
+    private LocalTime endTime;
+    private Integer duration;
+    private String issueDescription;
+
+    private SessionStatus status;
+    private String providerMessage;
+
+    private boolean reminderSent;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+}
+

@@ -4,6 +4,7 @@ import com.wellness.backend.dto.BookingRequestDTO;
 import com.wellness.backend.dto.BookingResponseDTO;
 import com.wellness.backend.exception.BookingConflictException;
 import com.wellness.backend.model.BookingEntity;
+import com.wellness.backend.model.BookingStatus;
 import com.wellness.backend.model.UserEntity;
 import com.wellness.backend.repository.BookingRepository;
 import com.wellness.backend.repository.UserRepository;
@@ -20,6 +21,7 @@ public class BookingService {
 
     private final BookingRepository bookingRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     public BookingResponseDTO createBooking(BookingRequestDTO request) {
         // Validate bookingDate is in the future
@@ -43,10 +45,13 @@ public class BookingService {
         booking.setUser(user);
         booking.setPractitioner(practitioner);
         booking.setBookingDate(request.getBookingDate());
-        booking.setStatus("PENDING");
+        booking.setStatus(BookingStatus.PENDING);
+        booking.setCreatedAt(LocalDateTime.now());
+        booking.setReminderSent(false);
         booking.setNotes(request.getNotes());
 
         BookingEntity saved = bookingRepository.save(booking);
+        notificationService.notifyBookingRequest(saved);
         return mapToResponseDTO(saved);
     }
 
@@ -62,6 +67,12 @@ public class BookingService {
                 .collect(Collectors.toList());
     }
 
+    public List<BookingResponseDTO> getPractitionerBookingsByStatus(Long practitionerId, BookingStatus status) {
+        return bookingRepository.findByPractitioner_IdAndStatus(practitionerId, status).stream()
+                .map(this::mapToResponseDTO)
+                .collect(Collectors.toList());
+    }
+
     private BookingResponseDTO mapToResponseDTO(BookingEntity entity) {
         BookingResponseDTO dto = new BookingResponseDTO();
         dto.setId(entity.getId());
@@ -69,7 +80,7 @@ public class BookingService {
         dto.setPractitionerId(entity.getPractitioner().getId());
         dto.setBookingDate(entity.getBookingDate());
         dto.setNotes(entity.getNotes());
-        dto.setStatus(entity.getStatus());
+        dto.setStatus(entity.getStatus() != null ? entity.getStatus().name() : null);
         return dto;
     }
 }

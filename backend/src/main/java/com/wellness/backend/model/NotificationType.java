@@ -1,0 +1,10 @@
+package com.wellness.backend.model;
+
+public enum NotificationType {
+    BOOKING_REQUEST,
+    SESSION_CONFIRMED,
+    SESSION_REJECTED,
+    SESSION_RESCHEDULE_SUGGESTED,
+    SESSION_REMINDER
+}
+

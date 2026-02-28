@@ -14,7 +14,8 @@ export function MarketplacePage() {
     const [bookingPractitioner, setBookingPractitioner] = useState<Profile | null>(null);
     const [bookingNotes, setBookingNotes] = useState('');
     const [bookingDate, setBookingDate] = useState('');
-    const [bookingTime, setBookingTime] = useState('');
+  const [selectedSlot, setSelectedSlot] = useState<{ start: string; end: string } | null>(null);
+  const [practitionerBookings, setPractitionerBookings] = useState<Booking[]>([]);
     const [loading, setLoading] = useState(false);
     const [fetchLoading, setFetchLoading] = useState(true);
     const [message, setMessage] = useState('');
@@ -40,16 +41,49 @@ export function MarketplacePage() {
         }
     };
 
+  const fetchPractitionerBookings = async (practitionerId: number) => {
+    try {
+      const existing = await api.getPractitionerBookings(practitionerId);
+      setPractitionerBookings(existing);
+    } catch (err) {
+      console.error(err);
+      setPractitionerBookings([]);
+    }
+  };
+
+  const generateTimeSlots = () => {
+    const slots: { start: string; end: string }[] = [];
+    let hour = 9;
+    let minute = 0;
+
+    while (hour < 18) {
+      const start = `${hour.toString().padStart(2, '0')}:${minute === 0 ? '00' : '30'}`;
+      minute += 30;
+      if (minute === 60) {
+        minute = 0;
+        hour++;
+      }
+      const endHour = minute === 0 ? hour : hour;
+      const endMinute = minute === 0 ? '00' : '30';
+      const end = `${endHour.toString().padStart(2, '0')}:${endMinute}`;
+      slots.push({ start, end });
+    }
+
+    return slots;
+  };
+
+  const slots = generateTimeSlots();
+
     const handleBook = async () => {
         if (!bookingPractitioner || !profile) return;
-        if (!bookingDate || !bookingTime) {
-            setMessage('Please select a date and time.');
+    if (!bookingDate || !selectedSlot) {
+      setMessage('Please select a date and time slot.');
             setTimeout(() => setMessage(''), 4000);
             return;
         }
         setLoading(true);
         try {
-            const selectedDateTime = `${bookingDate}T${bookingTime}`;
+      const selectedDateTime = `${bookingDate}T${selectedSlot.start}`;
             const bookingData: Booking = {
                 userId: profile.id,
                 practitionerId: bookingPractitioner.id,
@@ -62,7 +96,7 @@ export function MarketplacePage() {
             setBookingPractitioner(null);
             setBookingNotes('');
             setBookingDate('');
-            setBookingTime('');
+      setSelectedSlot(null);
             setTimeout(() => setMessage(''), 4000);
         } catch (err: any) {
             console.error(err);
@@ -177,7 +211,12 @@ export function MarketplacePage() {
                                     </div>
 
                                     <button
-                                        onClick={() => setBookingPractitioner(p)}
+                                        onClick={() => {
+                                          setBookingPractitioner(p);
+                                          setBookingDate('');
+                                          setSelectedSlot(null);
+                                          fetchPractitionerBookings(p.id);
+                                        }}
                                         className="mt-auto w-full bg-brand-600 text-white font-black py-3.5 rounded-2xl hover:bg-brand-700 transition-all transform active:scale-95 shadow-lg shadow-brand-600/20"
                                     >
                                         Book Session
@@ -231,17 +270,61 @@ export function MarketplacePage() {
                                                 min={new Date().toISOString().split('T')[0]}
                                                 className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-slate-700 focus:outline-none focus:border-brand-400 font-medium"
                                                 value={bookingDate}
-                                                onChange={(e) => setBookingDate(e.target.value)}
+                                                onChange={(e) => {
+                                                  setBookingDate(e.target.value);
+                                                  setSelectedSlot(null);
+                                                }}
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-xs font-black uppercase tracking-widest text-slate-400 mb-2">Select Time</label>
-                                            <input
-                                                type="time"
-                                                className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-slate-700 focus:outline-none focus:border-brand-400 font-medium"
-                                                value={bookingTime}
-                                                onChange={(e) => setBookingTime(e.target.value)}
-                                            />
+                                            <label className="block text-xs font-black uppercase tracking-widest text-slate-400 mb-2">Select Time Slot</label>
+                                            {bookingDate ? (
+                                              <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
+                                                {slots.map((slot) => {
+                                                  const isSelected =
+                                                    selectedSlot?.start === slot.start && selectedSlot.end === slot.end;
+
+                                                  const slotDateTime = new Date(`${bookingDate}T${slot.start}`);
+                                                  const now = new Date();
+                                                  const isPast = slotDateTime <= now;
+
+                                                  const isBooked = practitionerBookings.some((b) => {
+                                                    if (!b.bookingDate) return false;
+                                                    const bDate = new Date(b.bookingDate);
+                                                    const bDateStr = bDate.toISOString().split('T')[0];
+                                                    const bTime = bDate.toISOString().slice(11, 16);
+                                                    const isSameDate = bDateStr === bookingDate;
+                                                    const isSameTime = bTime === slot.start;
+                                                    const isActiveStatus = b.status !== 'CANCELLED';
+                                                    return isSameDate && isSameTime && isActiveStatus;
+                                                  });
+
+                                                  const disabled = isPast || isBooked;
+
+                                                  return (
+                                                    <button
+                                                      key={`${slot.start}-${slot.end}`}
+                                                      type="button"
+                                                      onClick={() => !disabled && setSelectedSlot(slot)}
+                                                      disabled={disabled}
+                                                      className={`text-xs font-bold rounded-xl border px-3 py-2 text-left transition-all ${
+                                                        disabled
+                                                          ? 'bg-slate-100 text-slate-300 border-slate-200 cursor-not-allowed'
+                                                          : isSelected
+                                                            ? 'bg-brand-600 text-white border-brand-600 shadow-sm'
+                                                            : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                                                      }`}
+                                                    >
+                                                      {slot.start} – {slot.end}
+                                                    </button>
+                                                  );
+                                                })}
+                                              </div>
+                                            ) : (
+                                              <p className="text-xs text-slate-400 font-medium">
+                                                Select a date to see available time slots.
+                                              </p>
+                                            )}
                                         </div>
                                     </div>
                                     <div>

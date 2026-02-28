@@ -66,6 +66,33 @@ export interface Order {
   product?: Product
 }
 
+export interface SessionBooking {
+  id?: number
+  clientId: number
+  clientName?: string
+  providerId: number
+  providerName?: string
+  sessionDate: string
+  startTime: string
+  endTime: string
+  duration: number
+  issueDescription: string
+  status: 'PENDING' | 'ACCEPTED' | 'RESCHEDULE_REQUESTED' | 'REJECTED' | 'COMPLETED'
+  providerMessage?: string
+  reminderSent?: boolean
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface Notification {
+  id: number
+  type: 'BOOKING_REQUEST' | 'SESSION_CONFIRMED' | 'SESSION_REJECTED' | 'SESSION_RESCHEDULE_SUGGESTED' | 'SESSION_REMINDER'
+  message: string
+  read: boolean
+  relatedBookingId?: number
+  createdAt: string
+}
+
 const apiClient = axios.create({ baseURL: API_BASE, withCredentials: true })
 
 apiClient.interceptors.request.use(
@@ -217,6 +244,68 @@ export const api = {
   async getProviderOrders(providerId: number): Promise<Order[]> {
     const response = await apiClient.get(`/orders/provider/${providerId}`)
     return response.data
+  },
+
+  // Sessions (Smart Booking)
+  async bookSession(data: {
+    providerId: number
+    sessionDate: string
+    startTime: string
+    endTime: string
+    duration: number
+    issueDescription: string
+  }): Promise<SessionBooking> {
+    const response = await apiClient.post('/sessions/book', data)
+    return response.data
+  },
+
+  async getProviderSessions(providerId: number): Promise<SessionBooking[]> {
+    const response = await apiClient.get(`/sessions/provider/${providerId}`)
+    return response.data
+  },
+
+  async getClientSessions(clientId: number): Promise<SessionBooking[]> {
+    const response = await apiClient.get(`/sessions/client/${clientId}`)
+    return response.data
+  },
+
+  async acceptSession(id: number, providerMessage?: string): Promise<SessionBooking> {
+    const response = await apiClient.put(`/sessions/${id}/accept`, { providerMessage })
+    return response.data
+  },
+
+  async rescheduleSession(id: number, data: {
+    newSessionDate?: string
+    newStartTime?: string
+    newEndTime?: string
+    providerMessage: string
+  }): Promise<SessionBooking> {
+    const response = await apiClient.put(`/sessions/${id}/reschedule`, data)
+    return response.data
+  },
+
+  async rejectSession(id: number, providerMessage?: string): Promise<SessionBooking> {
+    const response = await apiClient.put(`/sessions/${id}/reject`, { providerMessage })
+    return response.data
+  },
+
+  async confirmReschedule(id: number): Promise<SessionBooking> {
+    const response = await apiClient.put(`/sessions/${id}/confirm-reschedule`)
+    return response.data
+  },
+
+  async getUpcomingSessionReminders(): Promise<SessionBooking[]> {
+    const response = await apiClient.get('/sessions/upcoming-reminders')
+    return response.data
+  },
+
+  async getNotifications(): Promise<Notification[]> {
+    const response = await apiClient.get('/notifications')
+    return response.data
+  },
+
+  async markNotificationRead(id: number): Promise<void> {
+    await apiClient.put(`/notifications/${id}/read`)
   },
 
   async verifyEmail(token: string): Promise<{ message: string }> {
