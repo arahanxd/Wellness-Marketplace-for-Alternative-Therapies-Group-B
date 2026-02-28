@@ -44,6 +44,13 @@ export interface Booking {
   notes?: string
 }
 
+export interface BookingRequest {
+  userId: number
+  practitionerId: number
+  bookingDate?: string
+  notes?: string
+}
+
 export interface Product {
   productId?: number
   name: string
@@ -176,7 +183,7 @@ export const api = {
   async rejectPractitioner(id: number) { await apiClient.put(`/admin/reject/${id}`) },
 
   // Bookings
-  async createBooking(data: Booking): Promise<Booking> {
+  async createBooking(data: BookingRequest): Promise<Booking> {
     const response = await apiClient.post('/bookings', data)
     return response.data
   },
@@ -188,6 +195,21 @@ export const api = {
 
   async getPractitionerBookings(practitionerId: number): Promise<Booking[]> {
     const response = await apiClient.get(`/bookings/practitioner/${practitionerId}`)
+    return response.data
+  },
+
+  async acceptBooking(id: number): Promise<Booking> {
+    const response = await apiClient.put(`/bookings/${id}/accept`)
+    return response.data
+  },
+
+  async rejectBooking(id: number): Promise<Booking> {
+    const response = await apiClient.put(`/bookings/${id}/reject`)
+    return response.data
+  },
+
+  async rescheduleBooking(id: number, data: { newSessionDate?: string, newStartTime?: string }): Promise<Booking> {
+    const response = await apiClient.put(`/bookings/${id}/reschedule`, data)
     return response.data
   },
 

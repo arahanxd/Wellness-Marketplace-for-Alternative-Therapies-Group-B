@@ -73,10 +73,45 @@ public class BookingService {
                 .collect(Collectors.toList());
     }
 
+    public BookingResponseDTO acceptBooking(Long id) {
+        BookingEntity booking = bookingRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Booking not found"));
+        booking.setStatus(BookingStatus.ACCEPTED);
+        return mapToResponseDTO(bookingRepository.save(booking));
+    }
+
+    public BookingResponseDTO rejectBooking(Long id) {
+        BookingEntity booking = bookingRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Booking not found"));
+        booking.setStatus(BookingStatus.REJECTED);
+        return mapToResponseDTO(bookingRepository.save(booking));
+    }
+
+    public BookingResponseDTO rescheduleBooking(Long id, String newSessionDate, String newStartTime) {
+        BookingEntity booking = bookingRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Booking not found"));
+        booking.setStatus(BookingStatus.RESCHEDULED);
+        try {
+            // Check if length is 5 e.g. "09:00", append ":00" to make it parseable
+            String timeString = newStartTime;
+            if (timeString != null && timeString.length() == 5) {
+                timeString += ":00";
+            }
+            LocalDateTime newBookingDate = LocalDateTime.parse(newSessionDate + "T" + timeString);
+            booking.setBookingDate(newBookingDate);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid date or time format. Expected yyyy-MM-dd and HH:mm");
+        }
+        return mapToResponseDTO(bookingRepository.save(booking));
+    }
+
     private BookingResponseDTO mapToResponseDTO(BookingEntity entity) {
         BookingResponseDTO dto = new BookingResponseDTO();
         dto.setId(entity.getId());
         dto.setUserId(entity.getUser().getId());
+        if (entity.getUser() != null) {
+            dto.setClientName(entity.getUser().getName());
+        }
         dto.setPractitionerId(entity.getPractitioner().getId());
         dto.setBookingDate(entity.getBookingDate());
         dto.setNotes(entity.getNotes());

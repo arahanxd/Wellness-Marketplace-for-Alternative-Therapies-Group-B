@@ -42,4 +42,23 @@ public class BookingController {
         }
         return ResponseEntity.ok(bookingService.getPractitionerUpcomingBookings(practitionerId));
     }
+
+    @PutMapping("/{id}/accept")
+    public ResponseEntity<BookingResponseDTO> acceptBooking(@PathVariable Long id) {
+        return ResponseEntity.ok(bookingService.acceptBooking(id));
+    }
+
+    @PutMapping("/{id}/reject")
+    public ResponseEntity<BookingResponseDTO> rejectBooking(@PathVariable Long id) {
+        return ResponseEntity.ok(bookingService.rejectBooking(id));
+    }
+
+    @PutMapping("/{id}/reschedule")
+    public ResponseEntity<BookingResponseDTO> rescheduleBooking(
+            @PathVariable Long id,
+            @RequestBody java.util.Map<String, String> data) {
+        String newSessionDate = data.get("newSessionDate");
+        String newStartTime = data.get("newStartTime");
+        return ResponseEntity.ok(bookingService.rescheduleBooking(id, newSessionDate, newStartTime));
+    }
 }

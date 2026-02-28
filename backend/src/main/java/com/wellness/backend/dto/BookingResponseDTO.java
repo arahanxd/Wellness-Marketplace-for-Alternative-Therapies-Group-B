@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 public class BookingResponseDTO {
     private Long id;
     private Long userId;
+    private String clientName;
     private Long practitionerId;
     private LocalDateTime bookingDate;
     private String notes;
