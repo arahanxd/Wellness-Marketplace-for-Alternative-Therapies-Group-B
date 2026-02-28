@@ -3,15 +3,18 @@ import { api, type Profile, type SessionBooking, type Notification } from '../ap
 
 export type Booking = {
   id?: number;
-  status?: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'RESCHEDULED' | string;
+  status?: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'RESCHEDULED' | 'CONFIRMED' | string;
   clientId?: number;
+  userId?: number;         // alias used by BookingResponseDTO
   clientName?: string;
   providerId?: number;
+  bookingDate?: string;    // ISO date-time from booking_date column
   sessionDate?: string;
   startTime?: string;
   endTime?: string;
   duration?: number;
   issueDescription?: string;
+  notes?: string;
   [key: string]: any;
 };
 import { SPECIALIZATIONS } from '../constants/specializations';
@@ -81,7 +84,7 @@ export function PractitionerDashboard() {
   const [loading, setLoading] = useState(false);
   const [degreeFile, setDegreeFile] = useState<File | null>(null);
   const [message, setMessage] = useState('');
-  const [activeTab, setActiveTab] = useState<'overview' | 'requests' | 'sessions' | 'profile' | 'verification'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'requests' | 'sessions' | 'calendar' | 'profile' | 'verification'>('overview');
   const [editForm, setEditForm] = useState<Partial<Profile>>({});
   const [rescheduleSession, setRescheduleSession] = useState<SessionBooking | null>(null);
   const [rescheduleDate, setRescheduleDate] = useState<string>('');
@@ -94,6 +97,8 @@ export function PractitionerDashboard() {
   const sidebarItems = [
     { label: 'Overview', onClick: () => setActiveTab('overview'), active: activeTab === 'overview', icon: <LayoutDashboard size={20} /> },
     { label: 'Booking Requests', onClick: () => setActiveTab('requests'), active: activeTab === 'requests', icon: <Calendar size={20} /> },
+    { label: 'Session History', onClick: () => setActiveTab('sessions'), active: activeTab === 'sessions', icon: <ClipboardList size={20} /> },
+    { label: 'Calendar', onClick: () => setActiveTab('calendar'), active: activeTab === 'calendar', icon: <Calendar size={20} /> },
     { label: 'Marketplace', path: '/marketplace', icon: <Globe size={20} /> },
     { label: 'My Products', path: '/my-products', icon: <Package size={20} /> },
     { label: 'Product Orders', path: '/product-orders', icon: <ClipboardList size={20} /> },
@@ -104,6 +109,11 @@ export function PractitionerDashboard() {
   useEffect(() => {
     fetchProfile();
     fetchNotifications();
+    const interval = setInterval(() => {
+      fetchProfile();
+      fetchNotifications();
+    }, 10000); // Poll every 10s
+    return () => clearInterval(interval);
   }, []);
 
   const fetchProfile = async () => {
@@ -159,6 +169,7 @@ export function PractitionerDashboard() {
       const updated = await api.acceptBooking(bookingId);
       setBookings((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
       setMessage('Booking accepted successfully');
+      fetchProfile(); // Re-fetch to update sessions list instantly
     } catch (err) {
       console.error(err);
     } finally {
@@ -173,6 +184,7 @@ export function PractitionerDashboard() {
       const updated = await api.rejectBooking(bookingId);
       setBookings((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
       setMessage('Booking rejected');
+      fetchProfile(); // Re-fetch to update sessions list instantly
     } catch (err) {
       console.error(err);
     } finally {
@@ -661,73 +673,58 @@ export function PractitionerDashboard() {
 
             {activeTab === 'sessions' && (
               <motion.div key="sessions" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-                <section className="bg-white p-10 rounded-[3rem] border border-brand-100/50 shadow-xl shadow-brand-500/5 mb-8">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-2xl font-black flex items-center gap-3 text-slate-900">
-                      <Calendar size={24} className="text-brand-600" /> Session Calendar
-                    </h3>
-                  </div>
-                  <SessionCalendar sessions={sessions} role="practitioner" />
-                </section>
-
                 <section className="bg-white p-10 rounded-[3rem] border border-brand-100/50 shadow-xl shadow-brand-500/5">
                   <div className="flex items-center justify-between mb-8">
                     <h3 className="text-2xl font-black flex items-center gap-3 text-slate-900">
-                      <Calendar size={24} className="text-brand-600" /> Session History
+                      <ClipboardList size={24} className="text-brand-600" /> Session History
                     </h3>
                   </div>
-                  <div className="space-y-4">
+                  <div className="overflow-x-auto">
                     {sessions.length > 0 ? (
-                      sessions
-                        .slice()
-                        .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
-                        .map((session, idx) => (
-                          <motion.div
-                            key={session.id ?? idx}
-                            initial={{ opacity: 0, x: -10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: idx * 0.03 }}
-                            className="flex items-center justify-between p-6 bg-slate-50/50 rounded-3xl border border-slate-100 hover:border-brand-200 hover:bg-white hover:shadow-lg hover:shadow-brand-500/5 transition-all"
-                          >
-                            <div className="flex items-center gap-5">
-                              <div className="h-12 w-12 rounded-2xl bg-brand-50 flex items-center justify-center text-brand-600 font-black text-sm">
-                                {idx + 1}
-                              </div>
-                              <div>
-                                <p className="font-black text-slate-900 leading-tight">
-                                  Session with {session.clientName ?? `Client #${session.clientId}`}
-                                </p>
-                                <p className="text-xs text-slate-500 font-semibold">
-                                  {session.sessionDate}{' '}
-                                  {session.startTime && session.endTime
-                                    ? `${session.startTime} - ${session.endTime}`
-                                    : ''}
-                                  {session.duration ? ` · ${session.duration} mins` : ''}
-                                </p>
-                                <p className="text-xs text-slate-500 mt-1 line-clamp-2">
-                                  {session.issueDescription}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex flex-col items-end gap-2">
-                              {(() => {
-                                const status = getSessionStatus(session)
-                                return (
-                                  <span
-                                    className={`px-3 py-1 rounded-full text-[11px] font-semibold ${getSessionStatusClasses(status)}`}
-                                  >
-                                    {status}
-                                  </span>
-                                )
-                              })()}
-                              {session.providerMessage && (
-                                <span className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded-xl px-3 py-1 max-w-xs text-right">
-                                  {session.providerMessage}
-                                </span>
-                              )}
-                            </div>
-                          </motion.div>
-                        ))
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="border-b border-slate-100">
+                            <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-slate-400 pl-4">Date</th>
+                            <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Time</th>
+                            <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Patient</th>
+                            <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
+                            <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Notes / Remarks</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                          {sessions
+                            .slice()
+                            .sort((a, b) => (b.sessionDate + b.startTime).localeCompare(a.sessionDate + a.startTime))
+                            .map((session, idx) => {
+                              const status = getSessionStatus(session)
+                              return (
+                                <motion.tr
+                                  key={session.id ?? idx}
+                                  initial={{ opacity: 0, y: 5 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  transition={{ delay: idx * 0.03 }}
+                                  className="group hover:bg-slate-50/50 transition-colors"
+                                >
+                                  <td className="py-4 pl-4 text-xs font-bold text-slate-900">{session.sessionDate}</td>
+                                  <td className="py-4 text-xs font-bold text-slate-600">
+                                    {session.startTime} - {session.endTime}
+                                  </td>
+                                  <td className="py-4 text-xs font-extrabold text-brand-700">
+                                    {session.clientName ?? `Client #${session.clientId}`}
+                                  </td>
+                                  <td className="py-4">
+                                    <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${getSessionStatusClasses(status)}`}>
+                                      {status}
+                                    </span>
+                                  </td>
+                                  <td className="py-4 text-[11px] text-slate-500 max-w-xs truncate italic">
+                                    {session.providerMessage || session.issueDescription || '-'}
+                                  </td>
+                                </motion.tr>
+                              )
+                            })}
+                        </tbody>
+                      </table>
                     ) : (
                       <div className="py-16 text-center">
                         <div className="bg-slate-50 inline-block p-8 rounded-full mb-6 border border-slate-100">
@@ -745,6 +742,70 @@ export function PractitionerDashboard() {
                 </section>
               </motion.div>
             )}
+
+            {/* Calendar Tab */}
+            {activeTab === 'calendar' && (() => {
+              // Map bookings (ACCEPTED / RESCHEDULED / CONFIRMED) into the shape SessionCalendar expects.
+              // bookingDate from the DB is an ISO LocalDateTime string; we split it into a local
+              // YYYY-MM-DD date key plus HH:mm start/end times so the calendar renders correctly.
+              const calendarSessions: SessionBooking[] = bookings
+                .filter((b) => b.status === 'ACCEPTED' || b.status === 'RESCHEDULED' || b.status === 'CONFIRMED')
+                .map((b) => {
+                  const dt = b.bookingDate ? new Date(b.bookingDate) : new Date()
+                  const year = dt.getFullYear()
+                  const month = String(dt.getMonth() + 1).padStart(2, '0')
+                  const day = String(dt.getDate()).padStart(2, '0')
+                  const hh = String(dt.getHours()).padStart(2, '0')
+                  const mm = String(dt.getMinutes()).padStart(2, '0')
+                  const endDt = new Date(dt.getTime() + 60 * 60 * 1000) // default 1-hour slot
+                  const ehh = String(endDt.getHours()).padStart(2, '0')
+                  const emm = String(endDt.getMinutes()).padStart(2, '0')
+                  return {
+                    id: b.id,
+                    clientId: b.userId ?? 0,
+                    clientName: b.clientName ?? `Client #${b.userId}`,
+                    providerId: profile?.id ?? 0,
+                    providerName: profile?.name ?? '',
+                    sessionDate: `${year}-${month}-${day}`,
+                    startTime: `${hh}:${mm}`,
+                    endTime: `${ehh}:${emm}`,
+                    duration: 60,
+                    issueDescription: b.notes ?? '',
+                    status: 'ACCEPTED' as const,
+                  }
+                })
+              return (
+                <motion.div key="calendar" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+                  <motion.header
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-gradient-to-r from-brand-600 to-indigo-600 p-10 rounded-[2.5rem] shadow-xl shadow-brand-500/20 text-white mb-8"
+                  >
+                    <div>
+                      <h2 className="text-3xl md:text-4xl font-black tracking-tight mb-2">
+                        Session <span className="text-white/80">Calendar</span>
+                      </h2>
+                      <p className="text-white/70 flex items-center gap-2 font-medium">
+                        <Calendar size={16} /> View your accepted and confirmed sessions.
+                      </p>
+                    </div>
+                  </motion.header>
+                  <section className="bg-white p-10 rounded-[3rem] border border-brand-100/50 shadow-xl shadow-brand-500/5">
+                    {calendarSessions.length === 0 ? (
+                      <div className="py-16 text-center">
+                        <div className="bg-slate-50 inline-block p-8 rounded-full mb-6 border border-slate-100">
+                          <Calendar size={40} className="text-slate-300" />
+                        </div>
+                        <p className="text-slate-400 font-black uppercase tracking-widest text-xs">No accepted bookings</p>
+                        <p className="text-slate-500 text-sm mt-2 font-medium">Accept booking requests to see them on your calendar.</p>
+                      </div>
+                    ) : (
+                      <SessionCalendar sessions={calendarSessions} role="patient" />
+                    )}
+                  </section>
+                </motion.div>
+              )
+            })()}
 
             {/* Profile Tab */}
             {activeTab === 'profile' && (

@@ -107,7 +107,11 @@ export function UserDashboard() {
     ? approvedPractitioners.filter((p) => p.specialization === selectedSpecialization)
     : approvedPractitioners
 
-  useEffect(() => { fetchData() }, [])
+  useEffect(() => {
+    fetchData()
+    const interval = setInterval(fetchData, 10000) // Poll every 10s for real-time updates
+    return () => clearInterval(interval)
+  }, [])
 
   const fetchData = async () => {
     try {
@@ -428,7 +432,7 @@ export function UserDashboard() {
                 </div>
               </motion.header>
 
-              <SessionCalendar sessions={sessions} role="patient" />
+              <SessionCalendar sessions={sessions.filter(s => s.status === 'ACCEPTED')} role="patient" />
 
               <section className="bg-white rounded-[3rem] border border-brand-100/50 p-10 shadow-xl shadow-brand-500/5">
                 <div className="flex items-center justify-between mb-8">

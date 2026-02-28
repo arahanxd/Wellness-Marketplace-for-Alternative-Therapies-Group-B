@@ -16,6 +16,17 @@ interface DayInfo {
 
 const WEEK_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
+/**
+ * Normalize any sessionDate value (YYYY-MM-DD or full ISO) to a local YYYY-MM-DD string.
+ * If the string is already YYYY-MM-DD we return it as-is to avoid timezone shifting via
+ * the Date constructor (new Date('2025-03-01') is parsed as UTC midnight, not local).
+ */
+function toLocalDateKey(raw: string): string {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw
+  const d = new Date(raw)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 export function SessionCalendar({ sessions, role, onDaySelect }: SessionCalendarProps) {
   // currentDate represents the first day of the currently viewed month
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -37,11 +48,12 @@ export function SessionCalendar({ sessions, role, onDaySelect }: SessionCalendar
     setCurrentDate(new Date(viewYear, viewMonth + 1, 1))
   }
 
+  // Build a map of YYYY-MM-DD -> session count using normalized local date keys
   const daySessions: Record<string, DayInfo> = useMemo(() => {
     const map: Record<string, DayInfo> = {}
     sessions.forEach((s) => {
       if (!s.sessionDate) return
-      const key = s.sessionDate
+      const key = toLocalDateKey(String(s.sessionDate))
       if (!map[key]) {
         map[key] = { date: key, count: 0 }
       }
@@ -50,26 +62,19 @@ export function SessionCalendar({ sessions, role, onDaySelect }: SessionCalendar
     return map
   }, [sessions])
 
+  // Both roles: 0 sessions → green, 1+ sessions → red
   const getColorForCount = (count: number) => {
-    if (role === 'practitioner') {
-      // Practitioner: Green → 0–1, Yellow → 2–3, Red → ≥4
-      if (count <= 1) return 'bg-emerald-50 text-emerald-700 border-emerald-200'
-      if (count < 4) return 'bg-amber-50 text-amber-700 border-amber-200'
-      return 'bg-rose-50 text-rose-700 border-rose-200'
-    } else {
-      // Patient: Green → 0, Yellow → 1, Red → >1
-      if (count === 0) return 'bg-emerald-50 text-emerald-700 border-emerald-200'
-      if (count === 1) return 'bg-amber-50 text-amber-700 border-amber-200'
-      return 'bg-rose-50 text-rose-700 border-rose-200'
-    }
+    if (count === 0) return 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-white hover:border-brand-200'
+    return 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100/50'
   }
 
   const selectedSessions = selectedDate
-    ? sessions.filter((s) => s.sessionDate === selectedDate)
+    ? sessions.filter((s) => toLocalDateKey(String(s.sessionDate)) === selectedDate)
     : []
 
+  // Build "today" string the same way — local date, no timezone shift
   const today = new Date()
-  const todayStr = today.toISOString().split('T')[0]
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -107,21 +112,24 @@ export function SessionCalendar({ sessions, role, onDaySelect }: SessionCalendar
             </div>
           </div>
 
+          {/* Day-of-week headers */}
           <div className="grid grid-cols-7 gap-2 text-center text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">
             {WEEK_DAYS.map((d) => (
               <div key={d}>{d}</div>
             ))}
           </div>
 
+          {/* Calendar grid */}
           <div className="grid grid-cols-7 gap-2 text-sm">
+            {/* Empty cells before the first day */}
             {Array.from({ length: startWeekday }).map((_, idx) => (
               <div key={`empty-${idx}`} className="aspect-square" />
             ))}
+
+            {/* Day cells */}
             {Array.from({ length: daysInMonth }).map((_, idx) => {
               const day = idx + 1
-              const d = new Date(viewYear, viewMonth, day)
-              d.setMinutes(d.getMinutes() - d.getTimezoneOffset())
-              const dateStr = d.toISOString().split('T')[0]
+              const dateStr = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
               const info = daySessions[dateStr]
               const isToday = dateStr === todayStr
               const isSelected = selectedDate === dateStr
@@ -131,56 +139,59 @@ export function SessionCalendar({ sessions, role, onDaySelect }: SessionCalendar
 
               const colorClasses = info
                 ? getColorForCount(info.count)
-                : 'bg-slate-50 text-slate-500 border-slate-100 hover:bg-white hover:border-brand-200'
+                : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-white hover:border-brand-200'
 
               return (
                 <button
                   key={dateStr}
                   type="button"
+                  title={`${info?.count || 0} sessions on ${dateStr}`}
                   onClick={() => {
                     setSelectedDate(dateStr)
                     onDaySelect?.(dateStr)
                   }}
-                  className={`${baseClasses} ${colorClasses} ${isSelected ? 'ring-2 ring-brand-500 ring-offset-2 ring-offset-white scale-110 z-10' : ''
-                    }`}
+                  className={`${baseClasses} ${colorClasses} ${isSelected ? 'ring-2 ring-brand-500 ring-offset-2 ring-offset-white scale-110 z-10' : ''}`}
                 >
                   <span className="mb-0.5">{day}</span>
                   {isToday && (
                     <span className="absolute top-2 right-2 h-1.5 w-1.5 rounded-full bg-brand-500 shadow-sm" />
                   )}
-                  {info && (
-                    <span className="text-[10px] font-black opacity-60">
-                      {info.count} sessions
-                    </span>
+                  {info && info.count > 0 && (
+                    <span className="text-[10px] font-black opacity-60">{info.count}</span>
                   )}
                 </button>
               )
             })}
           </div>
 
+          {/* Legend — same for both roles */}
           <div className="mt-8 flex items-center gap-6 text-[10px] font-black uppercase tracking-widest text-slate-400 border-t border-slate-50 pt-6">
             <div className="flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
-              <span>Available</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
-              <span>Scheduled</span>
+              <span>No sessions</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 rounded-full bg-rose-400" />
-              <span>Busy</span>
+              <span>Session booked</span>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Side panel */}
       <div className="h-full">
         <div className="bg-white rounded-[2rem] border border-slate-100 p-8 shadow-sm h-full flex flex-col min-h-[400px]">
           <h3 className="text-sm font-black text-slate-900 mb-6 flex items-center justify-between">
             <span>
               {selectedDate
-                ? new Date(selectedDate).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })
+                ? (() => {
+                  const [y, m, d] = selectedDate.split('-').map(Number)
+                  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+                    weekday: 'long',
+                    month: 'short',
+                    day: 'numeric',
+                  })
+                })()
                 : 'Day Details'}
             </span>
             {selectedDate && (
@@ -221,13 +232,20 @@ export function SessionCalendar({ sessions, role, onDaySelect }: SessionCalendar
                   >
                     <div className="flex justify-between items-start mb-2">
                       <span className="font-black text-slate-900 text-sm">
-                        {role === 'practitioner' ? (s.clientName || `Client #${s.clientId}`) : (s.providerName || `Provider #${s.providerId}`)}
+                        {role === 'practitioner'
+                          ? s.clientName || `Client #${s.clientId}`
+                          : s.providerName || `Provider #${s.providerId}`}
                       </span>
-                      <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${s.status === 'ACCEPTED' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
-                        }`}>
+                      <span
+                        className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${s.status === 'ACCEPTED' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
+                          }`}
+                      >
                         {s.status}
                       </span>
                     </div>
+                    <p className="text-[11px] text-slate-600 font-bold mb-1">
+                      {s.sessionDate}
+                    </p>
                     <p className="text-[11px] text-slate-600 font-bold mb-2">
                       {s.startTime} – {s.endTime} · {s.duration} mins
                     </p>
@@ -250,4 +268,3 @@ export function SessionCalendar({ sessions, role, onDaySelect }: SessionCalendar
     </div>
   )
 }
-
