@@ -15,8 +15,11 @@ public class SessionBookingResponseDTO {
     private Long id;
     private Long clientId;
     private String clientName;
+    private String clientEmail;
     private Long providerId;
     private String providerName;
+    private String providerSpecialization;
+    private String providerProfileImage;
 
     private LocalDate sessionDate;
     private LocalTime startTime;
@@ -31,4 +34,3 @@ public class SessionBookingResponseDTO {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
-

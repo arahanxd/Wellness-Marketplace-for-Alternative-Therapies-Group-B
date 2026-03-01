@@ -160,7 +160,7 @@ export function MyProductsPage() {
                                 <div className="h-56 bg-slate-50 relative overflow-hidden">
                                     {product.imageUrl ? (
                                         <img
-                                            src={`http://localhost:8080/${product.imageUrl}`}
+                                            src={product.imageUrl}
                                             alt={product.name}
                                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                         />

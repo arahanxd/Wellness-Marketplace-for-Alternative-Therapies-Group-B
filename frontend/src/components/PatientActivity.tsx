@@ -4,6 +4,7 @@ import {
     ShoppingBag, Calendar, CreditCard,
     TrendingUp, User
 } from 'lucide-react';
+import { formatDateToIndian } from '../utils/date';
 import { type PatientAnalytics as AnalyticsData, type Booking, type Order } from '../api';
 
 interface Props {
@@ -115,9 +116,11 @@ export const PatientActivity: React.FC<Props> = ({ data, loading }) => {
                                         <User size={18} />
                                     </div>
                                     <div>
-                                        <p className="text-sm font-black text-slate-900">Expert ID #{session.practitionerId}</p>
+                                        <p className="text-sm font-black text-slate-900">
+                                            {session.practitionerName || `Practitioner #${session.practitionerId}`}
+                                        </p>
                                         <p className="text-[10px] font-bold text-slate-400">
-                                            {session.bookingDate ? new Date(session.bookingDate).toLocaleDateString() : 'Date Pending'}
+                                            {formatDateToIndian(session.bookingDate)}
                                         </p>
                                     </div>
                                 </div>
@@ -165,7 +168,7 @@ export const PatientActivity: React.FC<Props> = ({ data, loading }) => {
                                 <div className="text-right">
                                     <p className="text-sm font-black text-violet-600">{formatCurrency(order.totalAmount)}</p>
                                     <p className="text-[10px] font-bold text-slate-400">
-                                        {new Date(order.orderDate).toLocaleDateString()}
+                                        {formatDateToIndian(order.orderDate)}
                                     </p>
                                 </div>
                             </div>

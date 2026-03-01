@@ -52,4 +52,10 @@ public class BookingEntity {
 
     @Column(name = "session_fee", precision = 19, scale = 2)
     private java.math.BigDecimal sessionFee;
+
+    @Column(name = "duration")
+    private Integer duration;
+
+    @Column(name = "practitioner_comment", length = 500)
+    private String practitionerComment;
 }

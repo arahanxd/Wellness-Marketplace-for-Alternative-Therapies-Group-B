@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, type Profile, type Booking, type BookingRequest } from '../api/api';
+import { api, type Profile, type Booking, type BookingRequest } from '../api';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -207,6 +207,9 @@ export function MarketplacePage() {
                                         <p className="flex items-center gap-2">
                                             <Calendar size={13} className="text-slate-400" /> Next available: Tomorrow
                                         </p>
+                                        <p className="flex items-center gap-2 font-black text-brand-700 bg-brand-50/50 px-3 py-1 rounded-xl w-fit">
+                                            <Sparkles size={12} /> ₹{p.sessionFee || 500} / Session
+                                        </p>
                                     </div>
 
                                     <button
@@ -254,9 +257,13 @@ export function MarketplacePage() {
                                     <div className="h-14 w-14 rounded-2xl bg-brand-50 flex items-center justify-center text-brand-600 text-2xl font-black">
                                         {bookingPractitioner.name[0]}
                                     </div>
-                                    <div>
+                                    <div className="flex-1">
                                         <h2 className="text-2xl font-black text-slate-900">Book Session</h2>
-                                        <p className="text-slate-500 font-medium">with <span className="text-brand-600 font-black">{bookingPractitioner.name}</span></p>
+                                        <p className="text-slate-500 font-medium italic">with <span className="text-brand-600 font-black">{bookingPractitioner.name}</span></p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Fee</p>
+                                        <p className="text-xl font-black text-slate-900">₹{bookingPractitioner.sessionFee || 500}</p>
                                     </div>
                                 </div>
 
@@ -307,10 +314,10 @@ export function MarketplacePage() {
                                                                 onClick={() => !disabled && setSelectedSlot(slot)}
                                                                 disabled={disabled}
                                                                 className={`text-xs font-bold rounded-xl border px-3 py-2 text-left transition-all ${disabled
-                                                                        ? 'bg-slate-100 text-slate-300 border-slate-200 cursor-not-allowed'
-                                                                        : isSelected
-                                                                            ? 'bg-brand-600 text-white border-brand-600 shadow-sm'
-                                                                            : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                                                                    ? 'bg-slate-100 text-slate-300 border-slate-200 cursor-not-allowed'
+                                                                    : isSelected
+                                                                        ? 'bg-brand-600 text-white border-brand-600 shadow-sm'
+                                                                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                                                                     }`}
                                                             >
                                                                 {slot.start} – {slot.end}

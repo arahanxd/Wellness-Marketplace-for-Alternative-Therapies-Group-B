@@ -8,9 +8,15 @@ public class BookingResponseDTO {
     private Long id;
     private Long userId;
     private String clientName;
-    private Long practitionerId;
+    private String clientEmail;
+
     private LocalDateTime bookingDate;
-    private String notes;
+    private String startTime;
+    private Integer duration;
+    private String notes; // Patient comment
+    private String practitionerComment;
     private String status;
     private java.math.BigDecimal sessionFee;
+
+    private UserDTO practitioner;
 }

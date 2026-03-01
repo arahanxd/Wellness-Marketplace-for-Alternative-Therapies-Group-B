@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+@JsonIgnoreProperties({ "hibernateLazyInitializer", "handler" })
 public class UserEntity {
 
     @Id
@@ -25,7 +25,7 @@ public class UserEntity {
     @Column(nullable = false, unique = true)
     private String email;
 
-    @JsonIgnore   // 🔥 NEVER expose password in API response
+    @JsonIgnore // 🔥 NEVER expose password in API response
     @Column(nullable = false)
     private String password;
 
@@ -63,9 +63,15 @@ public class UserEntity {
     @Column(name = "admin_comment", columnDefinition = "TEXT")
     private String adminComment;
 
+    @Column(name = "profile_image")
+    private String profileImage;
+
+    @Column(name = "session_fee", precision = 19, scale = 2)
+    private java.math.BigDecimal sessionFee = java.math.BigDecimal.valueOf(500.0);
+
     public boolean isVerified() {
         return "VERIFIED".equalsIgnoreCase(this.verificationStatus) ||
-               "APPROVED".equalsIgnoreCase(this.verificationStatus) ||
-               this.verified;
+                "APPROVED".equalsIgnoreCase(this.verificationStatus) ||
+                this.verified;
     }
 }

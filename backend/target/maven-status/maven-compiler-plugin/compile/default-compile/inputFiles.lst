@@ -34,6 +34,7 @@ C:\Career\Internship\Virtual Internship\Infosys\Working Project\Antigravity\Well
 C:\Career\Internship\Virtual Internship\Infosys\Working Project\Antigravity\Wellness-Marketplace-for-Alternative-Therapies\backend\src\main\java\com\wellness\backend\dto\SessionBookingResponseDTO.java
 C:\Career\Internship\Virtual Internship\Infosys\Working Project\Antigravity\Wellness-Marketplace-for-Alternative-Therapies\backend\src\main\java\com\wellness\backend\dto\SessionRescheduleRequestDTO.java
 C:\Career\Internship\Virtual Internship\Infosys\Working Project\Antigravity\Wellness-Marketplace-for-Alternative-Therapies\backend\src\main\java\com\wellness\backend\dto\SessionStatusUpdateDTO.java
+C:\Career\Internship\Virtual Internship\Infosys\Working Project\Antigravity\Wellness-Marketplace-for-Alternative-Therapies\backend\src\main\java\com\wellness\backend\dto\UserDTO.java
 C:\Career\Internship\Virtual Internship\Infosys\Working Project\Antigravity\Wellness-Marketplace-for-Alternative-Therapies\backend\src\main\java\com\wellness\backend\exception\BookingConflictException.java
 C:\Career\Internship\Virtual Internship\Infosys\Working Project\Antigravity\Wellness-Marketplace-for-Alternative-Therapies\backend\src\main\java\com\wellness\backend\exception\ForbiddenActionException.java
 C:\Career\Internship\Virtual Internship\Infosys\Working Project\Antigravity\Wellness-Marketplace-for-Alternative-Therapies\backend\src\main\java\com\wellness\backend\exception\GlobalExceptionHandler.java

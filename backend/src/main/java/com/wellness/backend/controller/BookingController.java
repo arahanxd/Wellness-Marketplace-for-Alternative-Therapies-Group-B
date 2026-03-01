@@ -69,4 +69,9 @@ public class BookingController {
         String newStartTime = data.get("newStartTime");
         return ResponseEntity.ok(bookingService.rescheduleBooking(id, newSessionDate, newStartTime));
     }
+
+    @PutMapping("/{id}/complete")
+    public ResponseEntity<BookingResponseDTO> completeBooking(@PathVariable Long id) {
+        return ResponseEntity.ok(bookingService.completeBooking(id));
+    }
 }

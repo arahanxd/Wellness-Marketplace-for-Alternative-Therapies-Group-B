@@ -49,7 +49,6 @@ export function ProductsPage() {
         try {
             const quantity = quantities[product.productId] || 1
             await api.createOrder({
-                userId: profile.id,
                 productId: product.productId,
                 quantity: quantity,
                 totalPrice: product.price * quantity
@@ -119,7 +118,7 @@ export function ProductsPage() {
                                 <div className="h-64 bg-slate-50 relative overflow-hidden">
                                     {product.imageUrl ? (
                                         <img
-                                            src={`http://localhost:8080/${product.imageUrl}`}
+                                            src={product.imageUrl}
                                             alt={product.name}
                                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                         />
@@ -176,11 +175,10 @@ export function ProductsPage() {
                                                         initial={{ opacity: 0, y: 10 }}
                                                         animate={{ opacity: 1, y: 0 }}
                                                         exit={{ opacity: 0, y: -10 }}
-                                                        className={`flex items-center justify-center gap-2 py-4 rounded-2xl font-black text-sm border ${
-                                                                    purchaseStatus?.type === 'success'
-                                                                    ? 'border-green-500 bg-green-50 text-green-700'
-                                                                    : 'border-red-500 bg-red-50 text-red-700'
-                                                                }`}
+                                                        className={`flex items-center justify-center gap-2 py-4 rounded-2xl font-black text-sm border ${purchaseStatus?.type === 'success'
+                                                            ? 'border-green-500 bg-green-50 text-green-700'
+                                                            : 'border-red-500 bg-red-50 text-red-700'
+                                                            }`}
                                                     >
                                                         {purchaseStatus?.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
                                                         {purchaseStatus?.message}

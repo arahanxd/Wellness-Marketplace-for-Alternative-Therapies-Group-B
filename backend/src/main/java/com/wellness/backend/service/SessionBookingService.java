@@ -180,7 +180,8 @@ public class SessionBookingService {
                     sessionBookingRepository.save(session);
                 } catch (Exception e) {
                     // Log and continue with others; do not break scheduler
-                    System.out.println("Failed to send reminder for session " + session.getId() + ": " + e.getMessage());
+                    System.out
+                            .println("Failed to send reminder for session " + session.getId() + ": " + e.getMessage());
                 }
             }
         }
@@ -237,12 +238,20 @@ public class SessionBookingService {
     }
 
     private SessionBookingResponseDTO toDto(SessionBookingEntity entity) {
+        String providerProfileImg = entity.getProvider().getProfileImage();
+        if (providerProfileImg != null && !providerProfileImg.startsWith("http")) {
+            providerProfileImg = "http://localhost:8080/uploads/" + providerProfileImg;
+        }
+
         return SessionBookingResponseDTO.builder()
                 .id(entity.getId())
                 .clientId(entity.getClient().getId())
                 .clientName(entity.getClient().getName())
+                .clientEmail(entity.getClient().getEmail())
                 .providerId(entity.getProvider().getId())
                 .providerName(entity.getProvider().getName())
+                .providerSpecialization(entity.getProvider().getSpecialization())
+                .providerProfileImage(providerProfileImg)
                 .sessionDate(entity.getSessionDate())
                 .startTime(entity.getStartTime())
                 .endTime(entity.getEndTime())
@@ -256,4 +265,3 @@ public class SessionBookingService {
                 .build();
     }
 }
-

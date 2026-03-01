@@ -33,17 +33,29 @@ export interface Profile {
   verified?: boolean
   emailVerified: boolean
   adminComment?: string
+  sessionFee?: number
+}
+
+export interface UserDTO {
+  id: number;
+  fullName: string;
+  specialization: string;
+  profileImage: string;
 }
 
 export interface Booking {
-  id?: number
+  id: number
   userId: number
   clientName?: string
-  practitionerId: number
-  bookingDate?: string
-  status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'RESCHEDULED' | 'CONFIRMED' | 'CANCELLED'
+  clientEmail?: string
+  bookingDate: string
+  startTime?: string
+  duration?: number
   notes?: string
+  practitionerComment?: string
+  status: string
   sessionFee?: number
+  practitioner?: UserDTO
 }
 
 export interface BookingRequest {
@@ -70,16 +82,16 @@ export interface OrderRequest {
 }
 
 export interface Order {
-  orderId?: number;
-  productName: string;
-  productImage?: string;
-  price: number;
-  quantity: number;
-  totalAmount: number;
-  orderDate: string;
-  deliveryDate: string;
-  deliveryStatus: string;
-  status: string;
+  orderId: number
+  productName: string
+  productImage: string
+  price: number
+  quantity: number
+  totalAmount: number
+  orderDate: string
+  deliveryDate: string
+  deliveryStatus: string
+  status: string
 }
 
 export interface PractitionerStats {
@@ -93,8 +105,11 @@ export interface SessionBooking {
   id?: number
   clientId: number
   clientName?: string
+  clientEmail?: string
   providerId: number
   providerName?: string
+  providerSpecialization?: string
+  providerProfileImage?: string
   sessionDate: string
   startTime: string
   endTime: string
@@ -263,6 +278,11 @@ export const api = {
 
   async rescheduleBooking(id: number, data: { newSessionDate?: string, newStartTime?: string }): Promise<Booking> {
     const response = await apiClient.put(`/bookings/${id}/reschedule`, data)
+    return response.data
+  },
+
+  async completeBooking(id: number): Promise<Booking> {
+    const response = await apiClient.put(`/bookings/${id}/complete`)
     return response.data
   },
 

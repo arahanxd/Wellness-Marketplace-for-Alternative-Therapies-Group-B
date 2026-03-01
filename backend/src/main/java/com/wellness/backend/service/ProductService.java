@@ -116,7 +116,13 @@ public class ProductService {
         dto.setDescription(entity.getDescription());
         dto.setPrice(entity.getPrice());
         dto.setProviderId(entity.getProvider().getId());
-        dto.setImageUrl(entity.getImageUrl());
+
+        String imgUrl = entity.getImageUrl();
+        if (imgUrl != null && !imgUrl.startsWith("http")) {
+            imgUrl = "http://localhost:8080/" + imgUrl;
+        }
+        dto.setImageUrl(imgUrl);
+
         dto.setCreatedAt(entity.getCreatedAt());
         return dto;
     }

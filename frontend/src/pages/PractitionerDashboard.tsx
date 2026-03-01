@@ -1,22 +1,7 @@
 import { useEffect, useState } from 'react';
-import { api, type Profile, type SessionBooking, type Notification, type PractitionerStats } from '../api';
+import { api, type Profile, type SessionBooking, type Notification, type PractitionerStats, type Booking } from '../api';
+import { formatDateToIndian } from '../utils/date';
 
-export type Booking = {
-  id?: number;
-  status?: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'RESCHEDULED' | 'CONFIRMED' | string;
-  clientId?: number;
-  userId?: number;         // alias used by BookingResponseDTO
-  clientName?: string;
-  providerId?: number;
-  bookingDate?: string;    // ISO date-time from booking_date column
-  sessionDate?: string;
-  startTime?: string;
-  endTime?: string;
-  duration?: number;
-  issueDescription?: string;
-  notes?: string;
-  [key: string]: any;
-};
 import { SPECIALIZATIONS } from '../constants/specializations';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { SessionCalendar } from '../components/SessionCalendar';
@@ -58,15 +43,17 @@ function VerificationStatusBadge({ status }: { status?: string }) {
   )
 }
 
-const getSessionStatus = (session: SessionBooking): 'Pending' | 'Ongoing' | 'Completed' => {
-  const { sessionDate, startTime, endTime } = session
-  if (!sessionDate || !startTime || !endTime) return 'Pending'
+const getSessionStatus = (booking: Booking): 'Pending' | 'Ongoing' | 'Completed' | 'Upcoming' => {
+  const { bookingDate, startTime, duration, status } = booking
+  if (status === 'COMPLETED') return 'Completed'
+  if (!bookingDate || !startTime) return 'Pending'
 
   const now = new Date()
-  const start = new Date(`${sessionDate}T${startTime}`)
-  const end = new Date(`${sessionDate}T${endTime}`)
+  const start = new Date(bookingDate)
+  const dur = duration || 60
+  const end = new Date(start.getTime() + dur * 60 * 1000)
 
-  if (now < start) return 'Pending'
+  if (now < start) return 'Upcoming'
   if (now >= start && now <= end) return 'Ongoing'
   return 'Completed'
 }
@@ -126,7 +113,6 @@ function PractitionerRevenueStats({ stats, loading }: { stats: PractitionerStats
 export function PractitionerDashboard() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [sessions, setSessions] = useState<SessionBooking[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
   const [degreeFile, setDegreeFile] = useState<File | null>(null);
@@ -177,12 +163,11 @@ export function PractitionerDashboard() {
         city: res.city,
         country: res.country,
         specialization: res.specialization,
+        sessionFee: res.sessionFee,
       });
       if (res.id) {
         const bookingRes = await api.getPractitionerBookings(res.id);
         setBookings(bookingRes);
-        const sessionRes = await api.getProviderSessions(res.id);
-        setSessions(sessionRes);
         fetchStats(res.id);
         fetchAnalytics(res.id);
       }
@@ -238,31 +223,46 @@ export function PractitionerDashboard() {
     }
   };
 
-  const acceptBooking = async (bookingId?: number) => {
-    if (!bookingId) return;
-    setSessionActionLoadingId(bookingId);
+  const acceptBooking = async (id?: number) => {
+    if (!id) return;
+    setSessionActionLoadingId(id);
     try {
-      const updated = await api.acceptBooking(bookingId);
+      const updated = await api.acceptBooking(id);
       setBookings((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
       setMessage('Booking accepted successfully');
-      fetchProfile(); // Re-fetch to update sessions list instantly
     } catch (err) {
       console.error(err);
+      setMessage('Failed to accept booking');
     } finally {
       setSessionActionLoadingId(null);
     }
   };
 
-  const rejectBooking = async (bookingId?: number) => {
-    if (!bookingId) return;
-    setSessionActionLoadingId(bookingId);
+  const completeBooking = async (id?: number) => {
+    if (!id) return;
+    setSessionActionLoadingId(id);
     try {
-      const updated = await api.rejectBooking(bookingId);
+      const updated = await api.completeBooking(id);
       setBookings((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
-      setMessage('Booking rejected');
-      fetchProfile(); // Re-fetch to update sessions list instantly
+      setMessage('Session marked as completed');
     } catch (err) {
       console.error(err);
+      setMessage('Failed to complete session');
+    } finally {
+      setSessionActionLoadingId(null);
+    }
+  };
+
+  const rejectBooking = async (id?: number) => {
+    if (!id) return;
+    setSessionActionLoadingId(id);
+    try {
+      const updated = await api.rejectBooking(id);
+      setBookings((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
+      setMessage('Booking rejected');
+    } catch (err) {
+      console.error(err);
+      setMessage('Failed to reject booking');
     } finally {
       setSessionActionLoadingId(null);
     }
@@ -488,7 +488,7 @@ export function PractitionerDashboard() {
             </motion.div>
           )}
 
-          <AnimatePresence mode="wait">
+          <AnimatePresence mode="sync">
             {/* Overview Tab */}
             {activeTab === 'overview' && (
               <motion.div key="overview" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
@@ -512,36 +512,39 @@ export function PractitionerDashboard() {
                       </thead>
                       <tbody className="divide-y divide-slate-50">
                         {bookings.length > 0 ? (
-                          bookings.map((booking, idx) => (
-                            <motion.tr
-                              key={booking.id}
-                              initial={{ opacity: 0, x: -10 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: idx * 0.05 }}
-                              className="group hover:bg-slate-50/50 transition-colors"
-                            >
-                              <td className="py-6 pl-4">
-                                <div className="flex items-center gap-4">
-                                  <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center text-brand-600 font-black text-xs">
-                                    P
+                          bookings
+                            .slice()
+                            .sort((a, b) => new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime())
+                            .map((booking, idx) => (
+                              <motion.tr
+                                key={booking.id}
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: idx * 0.05 }}
+                                className="group hover:bg-slate-50/50 transition-colors"
+                              >
+                                <td className="py-6 pl-4">
+                                  <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center text-brand-600 font-black text-xs">
+                                      P
+                                    </div>
+                                    <span className="font-bold text-slate-900">{booking.clientName || 'Patient'}</span>
                                   </div>
-                                  <span className="font-bold text-slate-900">Patient #{booking.userId}</span>
-                                </div>
-                              </td>
-                              <td className="py-6 text-sm font-bold text-slate-600 tabular-nums">
-                                {booking.bookingDate ? new Date(booking.bookingDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'TBD'}
-                              </td>
-                              <td className="py-6">
-                                <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-sm ${booking.status === 'CONFIRMED' ? 'border-emerald-200 text-emerald-600 bg-emerald-50' :
-                                  booking.status === 'CANCELLED' ? 'border-rose-200 text-rose-600 bg-rose-50' :
-                                    'border-brand-200 text-brand-600 bg-brand-50'
-                                  }`}>
-                                  {booking.status}
-                                </span>
-                              </td>
-                              <td className="py-6 text-slate-500 text-xs font-medium italic max-w-[200px] truncate">{booking.notes || 'No notes'}</td>
-                            </motion.tr>
-                          ))
+                                </td>
+                                <td className="py-6 text-sm font-bold text-slate-600 tabular-nums">
+                                  {formatDateToIndian(booking.bookingDate)}
+                                </td>
+                                <td className="py-6">
+                                  <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-sm ${booking.status === 'CONFIRMED' ? 'border-emerald-200 text-emerald-600 bg-emerald-50' :
+                                    booking.status === 'CANCELLED' ? 'border-rose-200 text-rose-600 bg-rose-50' :
+                                      'border-brand-200 text-brand-600 bg-brand-50'
+                                    }`}>
+                                    {booking.status}
+                                  </span>
+                                </td>
+                                <td className="py-6 text-slate-500 text-xs font-medium italic max-w-[200px] truncate">{booking.notes || 'No notes'}</td>
+                              </motion.tr>
+                            ))
                         ) : (
                           <tr>
                             <td colSpan={4} className="py-20 text-center">
@@ -589,63 +592,66 @@ export function PractitionerDashboard() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
-                          {bookingRequests.map((request, idx) => (
-                            <motion.tr
-                              key={request.id ?? idx}
-                              initial={{ opacity: 0, x: -10 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: idx * 0.04 }}
-                              className="group hover:bg-slate-50/50 transition-colors"
-                            >
-                              <td className="py-6 pl-4">
-                                <div className="flex items-center gap-4">
-                                  <div className="h-10 w-10 rounded-xl bg-brand-50 flex items-center justify-center text-brand-600 font-black text-sm">
-                                    {request.clientName ? request.clientName[0] : 'P'}
+                          {bookingRequests
+                            .slice()
+                            .sort((a, b) => new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime())
+                            .map((request, idx) => (
+                              <motion.tr
+                                key={request.id ?? idx}
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: idx * 0.04 }}
+                                className="group hover:bg-slate-50/50 transition-colors"
+                              >
+                                <td className="py-6 pl-4">
+                                  <div className="flex items-center gap-4">
+                                    <div className="h-10 w-10 rounded-xl bg-brand-50 flex items-center justify-center text-brand-600 font-black text-sm">
+                                      {request.clientName ? request.clientName[0] : 'P'}
+                                    </div>
+                                    <span className="font-bold text-slate-900">
+                                      {request.clientName || 'Client'}
+                                    </span>
                                   </div>
-                                  <span className="font-bold text-slate-900">
-                                    {request.clientName ?? `Client #${request.clientId}`}
-                                  </span>
-                                </div>
-                              </td>
-                              <td className="py-6 text-sm font-bold text-slate-600">
-                                {request.sessionDate}
-                              </td>
-                              <td className="py-6 text-sm font-bold text-slate-600">
-                                {request.startTime && request.endTime ? `${request.startTime} - ${request.endTime}` : ''}
-                                {request.duration ? <span className="block text-xs text-slate-400 font-medium">{request.duration} mins</span> : ''}
-                              </td>
-                              <td className="py-6 text-slate-500 text-xs font-medium max-w-[200px] truncate">
-                                {request.issueDescription || 'No description provided'}
-                              </td>
-                              <td className="py-6 pr-4 text-right">
-                                <div className="flex justify-end gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => acceptBooking(request.id)}
-                                    disabled={sessionActionLoadingId === request.id}
-                                    className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50"
-                                  >
-                                    {sessionActionLoadingId === request.id ? '...' : 'Accept'}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => rescheduleBooking(request.id)}
-                                    className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors"
-                                  >
-                                    Reschedule
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => rejectBooking(request.id)}
-                                    disabled={sessionActionLoadingId === request.id}
-                                    className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 transition-colors disabled:opacity-50"
-                                  >
-                                    {sessionActionLoadingId === request.id ? '...' : 'Reject'}
-                                  </button>
-                                </div>
-                              </td>
-                            </motion.tr>
-                          ))}
+                                </td>
+                                <td className="py-6 text-sm font-bold text-slate-600">
+                                  {formatDateToIndian(request.bookingDate)}
+                                </td>
+                                <td className="py-6 text-sm font-bold text-slate-600">
+                                  {request.startTime ? request.startTime : 'N/A'}
+                                  {request.duration ? <span className="block text-xs text-slate-400 font-medium">{request.duration} mins</span> : ''}
+                                </td>
+                                <td className="py-6 text-slate-500 text-xs font-medium max-w-[200px] truncate">
+                                  {request.notes || 'No description provided'}
+                                </td>
+                                <td className="py-6 pr-4 text-right">
+                                  <div className="flex justify-end gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => acceptBooking(request.id)}
+                                      disabled={sessionActionLoadingId === request.id}
+                                      className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                                    >
+                                      {sessionActionLoadingId === request.id ? '...' : 'Accept'}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => rescheduleBooking(request.id)}
+                                      className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors"
+                                    >
+                                      Reschedule
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => rejectBooking(request.id)}
+                                      disabled={sessionActionLoadingId === request.id}
+                                      className="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 transition-colors disabled:opacity-50"
+                                    >
+                                      {sessionActionLoadingId === request.id ? '...' : 'Reject'}
+                                    </button>
+                                  </div>
+                                </td>
+                              </motion.tr>
+                            ))}
                         </tbody>
                       </table>
                     </div>
@@ -682,7 +688,7 @@ export function PractitionerDashboard() {
                         <p className="text-xs text-slate-500 mb-4">
                           Patient:{' '}
                           <span className="font-bold text-slate-900">
-                            {(rescheduleSession as unknown as Booking).clientName ?? `Patient #${(rescheduleSession as unknown as Booking).userId}`}
+                            {rescheduleSession.clientName || 'Patient'}
                           </span>
                         </p>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -757,45 +763,68 @@ export function PractitionerDashboard() {
                     </h3>
                   </div>
                   <div className="overflow-x-auto">
-                    {sessions.length > 0 ? (
+                    {bookings.length > 0 ? (
                       <table className="w-full text-left">
                         <thead>
                           <tr className="border-b border-slate-100">
-                            <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-slate-400 pl-4">Date</th>
-                            <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Time</th>
-                            <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Patient</th>
+                            <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-slate-400 pl-4">Patient Details</th>
+                            <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Date</th>
+                            <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Time / Duration</th>
                             <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
-                            <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Notes / Remarks</th>
+                            <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Comments</th>
+                            <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right pr-4">Action</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
-                          {sessions
+                          {bookings
+                            .filter(b => b.status === 'COMPLETED' || getSessionStatus(b) === 'Completed')
                             .slice()
-                            .sort((a, b) => (b.sessionDate + b.startTime).localeCompare(a.sessionDate + a.startTime))
-                            .map((session, idx) => {
-                              const status = getSessionStatus(session)
+                            .sort((a, b) => new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime())
+                            .map((booking, idx) => {
+                              const status = getSessionStatus(booking)
                               return (
                                 <motion.tr
-                                  key={session.id ?? idx}
+                                  key={booking.id ?? idx}
                                   initial={{ opacity: 0, y: 5 }}
                                   animate={{ opacity: 1, y: 0 }}
                                   transition={{ delay: idx * 0.03 }}
                                   className="group hover:bg-slate-50/50 transition-colors"
                                 >
-                                  <td className="py-4 pl-4 text-xs font-bold text-slate-900">{session.sessionDate}</td>
-                                  <td className="py-4 text-xs font-bold text-slate-600">
-                                    {session.startTime} - {session.endTime}
+                                  <td className="py-4 pl-4">
+                                    <div className="flex flex-col">
+                                      <span className="text-xs font-extrabold text-brand-700">
+                                        {booking.clientName || 'Client'}
+                                      </span>
+                                      {booking.clientEmail && (
+                                        <span className="text-[10px] text-slate-400 font-medium">{booking.clientEmail}</span>
+                                      )}
+                                    </div>
                                   </td>
-                                  <td className="py-4 text-xs font-extrabold text-brand-700">
-                                    {session.clientName ?? `Client #${session.clientId}`}
+                                  <td className="py-4 text-xs font-bold text-slate-900">{formatDateToIndian(booking.bookingDate)}</td>
+                                  <td className="py-4 text-xs font-bold text-slate-600">
+                                    {booking.startTime || 'N/A'}
+                                    {booking.duration && <span className="block text-[10px] text-slate-400 font-medium">{booking.duration} mins</span>}
                                   </td>
                                   <td className="py-4">
                                     <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${getSessionStatusClasses(status)}`}>
                                       {status}
                                     </span>
                                   </td>
-                                  <td className="py-4 text-[11px] text-slate-500 max-w-xs truncate italic">
-                                    {session.providerMessage || session.issueDescription || '-'}
+                                  <td className="py-4 text-[11px] text-slate-500 max-w-xs space-y-1">
+                                    {booking.notes && <p><span className="font-bold text-slate-400 uppercase tracking-tighter text-[8px]">Patient:</span> {booking.notes}</p>}
+                                    {booking.practitionerComment && <p><span className="font-bold text-brand-400 uppercase tracking-tighter text-[8px]">You:</span> {booking.practitionerComment}</p>}
+                                    {!booking.notes && !booking.practitionerComment && <span className="italic">-</span>}
+                                  </td>
+                                  <td className="py-4 pr-4 text-right">
+                                    {booking.status !== 'COMPLETED' && status === 'Completed' && (
+                                      <button
+                                        onClick={() => completeBooking(booking.id)}
+                                        disabled={sessionActionLoadingId === booking.id}
+                                        className="text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:text-emerald-700 transition-colors"
+                                      >
+                                        {sessionActionLoadingId === booking.id ? '...' : 'Mark Completed'}
+                                      </button>
+                                    )}
                                   </td>
                                 </motion.tr>
                               )
@@ -846,7 +875,7 @@ export function PractitionerDashboard() {
                   return {
                     id: b.id,
                     clientId: b.userId ?? 0,
-                    clientName: b.clientName ?? `Client #${b.userId}`,
+                    clientName: b.clientName ?? 'Client',
                     providerId: profile?.id ?? 0,
                     providerName: profile?.name ?? '',
                     sessionDate: `${year}-${month}-${day}`,
@@ -954,6 +983,16 @@ export function PractitionerDashboard() {
                           type="text"
                           name="country"
                           value={editForm.country || ''}
+                          onChange={handleProfileChange}
+                          className="w-full bg-slate-50/50 border border-slate-100 rounded-2xl py-4 px-6 text-sm font-bold text-slate-900 focus:border-brand-500 focus:bg-white transition-all outline-none"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4">Session Fee (₹)</label>
+                        <input
+                          type="number"
+                          name="sessionFee"
+                          value={editForm.sessionFee || ''}
                           onChange={handleProfileChange}
                           className="w-full bg-slate-50/50 border border-slate-100 rounded-2xl py-4 px-6 text-sm font-bold text-slate-900 focus:border-brand-500 focus:bg-white transition-all outline-none"
                         />

@@ -12,12 +12,16 @@ import java.util.List;
 @Repository
 public interface BookingRepository extends JpaRepository<BookingEntity, Long> {
 
+    @Query("SELECT b FROM BookingEntity b JOIN FETCH b.user JOIN FETCH b.practitioner WHERE b.user.id = :userId ORDER BY b.bookingDate DESC")
     List<BookingEntity> findByUser_Id(Long userId);
 
+    @Query("SELECT b FROM BookingEntity b JOIN FETCH b.user JOIN FETCH b.practitioner WHERE b.user.id = :userId AND b.status IN :statuses ORDER BY b.bookingDate DESC")
     List<BookingEntity> findByUser_IdAndStatusIn(Long userId, List<BookingStatus> statuses);
 
+    @Query("SELECT b FROM BookingEntity b JOIN FETCH b.user JOIN FETCH b.practitioner WHERE b.practitioner.id = :practitionerId ORDER BY b.bookingDate DESC")
     List<BookingEntity> findByPractitioner_Id(Long practitionerId);
 
+    @Query("SELECT b FROM BookingEntity b JOIN FETCH b.user JOIN FETCH b.practitioner WHERE b.practitioner.id = :practitionerId AND b.status = :status ORDER BY b.bookingDate DESC")
     List<BookingEntity> findByPractitioner_IdAndStatus(Long practitionerId, BookingStatus status);
 
     boolean existsByPractitioner_IdAndBookingDate(Long practitionerId, LocalDateTime bookingDate);

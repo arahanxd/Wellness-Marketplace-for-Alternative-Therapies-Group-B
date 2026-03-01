@@ -2,6 +2,7 @@ package com.wellness.backend.service;
 
 import com.wellness.backend.dto.BookingRequestDTO;
 import com.wellness.backend.dto.BookingResponseDTO;
+import com.wellness.backend.dto.UserDTO;
 import com.wellness.backend.exception.BookingConflictException;
 import com.wellness.backend.model.BookingEntity;
 import com.wellness.backend.model.BookingStatus;
@@ -45,7 +46,10 @@ public class BookingService {
         booking.setUser(user);
         booking.setPractitioner(practitioner);
         booking.setBookingDate(request.getBookingDate());
+        booking.setNotes(request.getNotes());
         booking.setStatus(BookingStatus.PENDING);
+        booking.setSessionFee(practitioner.getSessionFee() != null ? practitioner.getSessionFee()
+                : java.math.BigDecimal.valueOf(500.0));
         booking.setCreatedAt(LocalDateTime.now());
         booking.setReminderSent(false);
         booking.setNotes(request.getNotes());
@@ -114,18 +118,58 @@ public class BookingService {
         return mapToResponseDTO(bookingRepository.save(booking));
     }
 
+    public BookingResponseDTO completeBooking(Long id) {
+        BookingEntity booking = bookingRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Booking not found"));
+        booking.setStatus(BookingStatus.COMPLETED);
+        return mapToResponseDTO(bookingRepository.save(booking));
+    }
+
+    public List<BookingResponseDTO> getPractitionerSessionHistory(Long practitionerId) {
+        LocalDateTime now = LocalDateTime.now();
+        // Strictly follow logic: status = COMPLETED and time passed
+        return bookingRepository.findByPractitioner_IdAndStatus(practitionerId, BookingStatus.COMPLETED).stream()
+                .filter(b -> b.getBookingDate().isBefore(now))
+                .map(this::mapToResponseDTO)
+                .collect(Collectors.toList());
+    }
+
     private BookingResponseDTO mapToResponseDTO(BookingEntity entity) {
         BookingResponseDTO dto = new BookingResponseDTO();
         dto.setId(entity.getId());
         dto.setUserId(entity.getUser().getId());
         if (entity.getUser() != null) {
             dto.setClientName(entity.getUser().getName());
+            dto.setClientEmail(entity.getUser().getEmail());
         }
-        dto.setPractitionerId(entity.getPractitioner().getId());
+
         dto.setBookingDate(entity.getBookingDate());
+        if (entity.getBookingDate() != null) {
+            dto.setStartTime(entity.getBookingDate().toLocalTime().toString());
+        }
+        dto.setDuration(entity.getDuration());
         dto.setNotes(entity.getNotes());
+        dto.setPractitionerComment(entity.getPractitionerComment());
         dto.setStatus(entity.getStatus() != null ? entity.getStatus().name() : null);
         dto.setSessionFee(entity.getSessionFee());
+
+        if (entity.getPractitioner() != null) {
+            UserEntity p = entity.getPractitioner();
+            String profileImg = p.getProfileImage();
+            if (profileImg != null && !profileImg.startsWith("http")) {
+                profileImg = "http://localhost:8080/uploads/" + profileImg;
+            }
+
+            UserDTO practitionerDto = UserDTO.builder()
+                    .id(p.getId())
+                    .fullName(p.getName())
+                    .specialization(p.getSpecialization())
+                    .profileImage(profileImg)
+                    .build();
+
+            dto.setPractitioner(practitionerDto);
+        }
+
         return dto;
     }
 }

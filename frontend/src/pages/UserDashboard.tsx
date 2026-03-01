@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { formatDateToIndian } from '../utils/date'
 import { DashboardLayout } from '../components/DashboardLayout'
 import { SessionCalendar } from '../components/SessionCalendar'
 import { SessionReminderBanner } from '../components/SessionReminderBanner'
@@ -50,20 +51,22 @@ function PractitionerStatusBadge({ status }: { status?: string }) {
   )
 }
 
-const getBookingStatus = (booking: Booking): 'Pending' | 'Ongoing' | 'Completed' => {
-  if (!booking.bookingDate) return 'Pending'
+const getBookingStatus = (booking: Booking): 'Pending' | 'Ongoing' | 'Completed' | 'Upcoming' => {
+  if (booking.status === 'COMPLETED') return 'Completed'
+  if (!booking.bookingDate || !booking.startTime) return 'Pending'
 
   const now = new Date()
   const start = new Date(booking.bookingDate)
-  const end = new Date(start.getTime() + 30 * 60 * 1000)
+  const dur = booking.duration || 30
+  const end = new Date(start.getTime() + dur * 60 * 1000)
 
-  if (now < start) return 'Pending'
+  if (now < start) return 'Upcoming'
   if (now >= start && now <= end) return 'Ongoing'
   return 'Completed'
 }
 
-const getBookingStatusClasses = (status: ReturnType<typeof getBookingStatus>) => {
-  if (status === 'Pending') {
+const getBookingStatusClasses = (status: 'Pending' | 'Ongoing' | 'Completed' | 'Upcoming') => {
+  if (status === 'Pending' || status === 'Upcoming') {
     return 'border-amber-200 text-amber-700 bg-amber-50'
   }
   if (status === 'Ongoing') {
@@ -73,29 +76,9 @@ const getBookingStatusClasses = (status: ReturnType<typeof getBookingStatus>) =>
   return 'border-emerald-200 text-emerald-700 bg-emerald-50'
 }
 
-const getSessionStatus = (session: SessionBooking): 'Pending' | 'Ongoing' | 'Completed' => {
-  const { sessionDate, startTime, endTime } = session
-  if (!sessionDate || !startTime || !endTime) return 'Pending'
-
-  const now = new Date()
-  const start = new Date(`${sessionDate}T${startTime}`)
-  const end = new Date(`${sessionDate}T${endTime}`)
-
-  if (now < start) return 'Pending'
-  if (now >= start && now <= end) return 'Ongoing'
-  return 'Completed'
-}
-
-const getSessionStatusClasses = (status: ReturnType<typeof getSessionStatus>) => {
-  if (status === 'Pending') return 'bg-yellow-100 text-yellow-700'
-  if (status === 'Ongoing') return 'bg-blue-100 text-blue-700'
-  return 'bg-green-100 text-green-700'
-}
-
 export function UserDashboard() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [bookings, setBookings] = useState<Booking[]>([])
-  const [sessions, setSessions] = useState<SessionBooking[]>([])
   const [approvedPractitioners, setApprovedPractitioners] = useState<Profile[]>([])
   const [selectedSpecialization, setSelectedSpecialization] = useState<string>('')
   const [activeTab, setActiveTab] = useState<'overview' | 'sessions' | 'activity' | 'profile'>('overview')
@@ -129,9 +112,6 @@ export function UserDashboard() {
       if (userProfile.id) {
         const userBookings = await api.getUserBookings(userProfile.id)
         setBookings(userBookings)
-
-        const userSessions = await api.getClientSessions(userProfile.id)
-        setSessions(userSessions)
         fetchAnalytics(userProfile.id)
       }
       // Fetch only approved practitioners for patient view
@@ -200,7 +180,7 @@ export function UserDashboard() {
           { label: 'Profile', active: activeTab === 'profile', path: '#', onClick: () => setActiveTab('profile'), icon: <User size={20} /> },
         ]}
       >
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="sync">
           {activeTab === 'overview' ? (
             <motion.div
               key="overview"
@@ -237,21 +217,27 @@ export function UserDashboard() {
                   </div>
                   {bookings.length > 0 ? (
                     (() => {
-                      const next = bookings[0]
-                      const status = getBookingStatus(next)
+                      const completedBookings = bookings.filter(b => b.status === 'COMPLETED' || getBookingStatus(b) === 'Completed');
+                      const upcomingBookings = bookings.filter(b => b.status !== 'COMPLETED' && (getBookingStatus(b) === 'Upcoming' || getBookingStatus(b) === 'Ongoing'));
+                      const latestCompleted = completedBookings.sort((a, b) => new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime())[0];
+                      const nextUpcoming = upcomingBookings.sort((a, b) => new Date(a.bookingDate).getTime() - new Date(b.bookingDate).getTime())[0];
+
                       return (
-                        <div>
-                          <h3 className="text-xl font-black text-slate-900 mb-1">Session with Specialist</h3>
-                          <p className="text-sm text-slate-500 font-medium italic">
-                            {next.bookingDate ? new Date(next.bookingDate).toLocaleString() : 'Date TBD'}
-                          </p>
-                          <div className="mt-4">
-                            <span
-                              className={`px-4 py-1 rounded-full text-[10px] font-black uppercase border shadow-sm ${getBookingStatusClasses(status)}`}
-                            >
-                              {status}
-                            </span>
-                          </div>
+                        <div className="space-y-4">
+                          {nextUpcoming && (
+                            <div>
+                              <h3 className="text-[10px] font-black uppercase tracking-widest text-brand-600 mb-2">Next Upcoming</h3>
+                              <p className="font-bold text-slate-900">{nextUpcoming.practitioner?.fullName || 'Wellness Session'}</p>
+                              <p className="text-xs text-slate-500">{formatDateToIndian(nextUpcoming.bookingDate)} at {nextUpcoming.startTime}</p>
+                            </div>
+                          )}
+                          {!nextUpcoming && latestCompleted && (
+                            <div>
+                              <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Last Session</h3>
+                              <p className="font-bold text-slate-900">{latestCompleted.practitioner?.fullName || 'Wellness Session'}</p>
+                              <p className="text-xs text-slate-500">{formatDateToIndian(latestCompleted.bookingDate)}</p>
+                            </div>
+                          )}
                         </div>
                       )
                     })()
@@ -364,38 +350,82 @@ export function UserDashboard() {
                 </div>
                 <div className="space-y-4">
                   {bookings.length > 0 ? (
-                    bookings.map((booking, idx) => {
-                      const computedStatus = getBookingStatus(booking)
-                      const badgeClasses = getBookingStatusClasses(computedStatus)
-                      return (
-                        <motion.div
-                          key={booking.id}
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: idx * 0.05 }}
-                          className="flex items-center justify-between p-6 bg-slate-50/50 rounded-3xl border border-slate-100 hover:border-brand-200 hover:bg-white hover:shadow-lg hover:shadow-brand-500/5 transition-all"
-                        >
-                          <div className="flex items-center gap-5">
-                            <div className="h-12 w-12 rounded-2xl bg-brand-50 flex items-center justify-center text-brand-600 font-black text-sm">
-                              {idx + 1}
-                            </div>
-                            <div>
-                              <p className="font-black text-slate-900 leading-tight">Practitioner #{booking.practitionerId}</p>
-                              <p className="text-xs text-slate-500 font-semibold">
-                                {booking.bookingDate
-                                  ? new Date(booking.bookingDate).toLocaleString()
-                                  : 'Date Pending'}
-                              </p>
-                            </div>
-                          </div>
-                          <span
-                            className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase border shadow-sm ${badgeClasses}`}
+                    bookings
+                      .slice()
+                      .sort((a, b) => new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime())
+                      .map((booking, idx) => {
+                        const computedStatus = getBookingStatus(booking)
+                        const badgeClasses = getBookingStatusClasses(computedStatus === 'Upcoming' ? 'Pending' : computedStatus)
+                        const p = booking.practitioner
+                        return (
+                          <motion.div
+                            key={booking.id}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: idx * 0.05 }}
+                            className="p-8 bg-slate-50/50 rounded-[2.5rem] border border-slate-100 hover:border-brand-200 hover:bg-white hover:shadow-xl hover:shadow-brand-500/5 transition-all group"
                           >
-                            {computedStatus}
-                          </span>
-                        </motion.div>
-                      )
-                    })
+                            <div className="flex flex-col md:flex-row justify-between gap-6">
+                              <div className="flex items-start gap-5">
+                                <div className="h-14 w-14 rounded-2xl overflow-hidden bg-brand-50 border border-brand-100 flex-shrink-0">
+                                  {p?.profileImage ? (
+                                    <img src={p.profileImage} alt={p.fullName} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-brand-600 font-black text-xl bg-brand-50">
+                                      {p?.fullName ? p.fullName[0] : 'P'}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="space-y-1">
+                                  <h4 className="font-black text-slate-900 text-lg leading-tight group-hover:text-brand-600 transition-colors">
+                                    {p?.fullName || 'Practitioner'}
+                                  </h4>
+                                  <p className="text-[10px] font-black uppercase tracking-widest text-brand-600/60">
+                                    {p?.specialization || 'Wellness Expert'}
+                                  </p>
+                                  <div className="flex items-center gap-3 pt-2">
+                                    <p className="text-xs text-slate-500 font-bold flex items-center gap-1.5 bg-white px-3 py-1 rounded-lg border border-slate-100 shadow-sm">
+                                      <Calendar size={12} className="text-brand-500" />
+                                      {formatDateToIndian(booking.bookingDate)}
+                                    </p>
+                                    <p className="text-xs text-slate-500 font-bold flex items-center gap-1.5 bg-white px-3 py-1 rounded-lg border border-slate-100 shadow-sm">
+                                      <Clock size={12} className="text-brand-500" />
+                                      {booking.startTime || 'N/A'} {booking.duration ? `(${booking.duration}m)` : ''}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="flex flex-col items-end justify-between">
+                                <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase border shadow-sm ${badgeClasses}`}>
+                                  {booking.status}
+                                </span>
+                                <div className="text-right">
+                                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Fee Paid</p>
+                                  <p className="font-black text-slate-900 text-lg">₹{booking.sessionFee || 0}</p>
+                                </div>
+                              </div>
+                            </div>
+
+                            {(booking.notes || booking.practitionerComment) && (
+                              <div className="mt-6 pt-6 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {booking.notes && (
+                                  <div className="bg-white/50 p-4 rounded-2xl border border-slate-100">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Your Note</p>
+                                    <p className="text-xs text-slate-600 font-medium italic">"{booking.notes}"</p>
+                                  </div>
+                                )}
+                                {booking.practitionerComment && (
+                                  <div className="bg-brand-50/50 p-4 rounded-2xl border border-brand-100/50">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-brand-600 mb-2">Practitioner Remark</p>
+                                    <p className="text-xs text-brand-900 font-bold">"{booking.practitionerComment}"</p>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </motion.div>
+                        )
+                      })
                   ) : (
                     <div className="py-16 text-center">
                       <div className="bg-slate-50 inline-block p-8 rounded-full mb-6 border border-slate-100">
@@ -448,23 +478,40 @@ export function UserDashboard() {
                 </div>
               </motion.header>
 
-              <SessionCalendar sessions={sessions.filter(s => s.status === 'ACCEPTED')} role="patient" />
+              <SessionCalendar
+                sessions={bookings
+                  .filter(b => ['ACCEPTED', 'CONFIRMED', 'RESCHEDULED'].includes(b.status))
+                  .map(b => ({
+                    id: b.id,
+                    clientId: b.userId,
+                    clientName: b.clientName || 'You',
+                    providerId: b.practitioner?.id || 0,
+                    providerName: b.practitioner?.fullName || 'Practitioner',
+                    sessionDate: b.bookingDate, // Assuming ISO format or compatible
+                    startTime: b.startTime || '09:00',
+                    endTime: '10:00', // Placeholder or calculation
+                    duration: b.duration || 60,
+                    issueDescription: b.notes || '',
+                    status: 'ACCEPTED' as const
+                  } as any))}
+                role="patient"
+              />
 
               <section className="bg-white rounded-[3rem] border border-brand-100/50 p-10 shadow-xl shadow-brand-500/5">
                 <div className="flex items-center justify-between mb-8">
                   <h2 className="text-2xl font-black text-slate-900 flex items-center gap-3">
-                    <Calendar size={24} className="text-brand-600" /> Session History
+                    <Calendar size={24} className="text-brand-600" /> Past Sessions
                   </h2>
                 </div>
                 <div className="space-y-4">
-                  {sessions.length > 0 ? (
-                    sessions
+                  {bookings.filter(b => b.status === 'COMPLETED' || getBookingStatus(b) === 'Completed').length > 0 ? (
+                    bookings
+                      .filter(b => b.status === 'COMPLETED' || getBookingStatus(b) === 'Completed')
                       .slice()
-                      .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
-                      .map((session, idx) => (
-                        // Treat as booking history entry with dynamic status based on time window
+                      .sort((a, b) => new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime())
+                      .map((booking, idx) => (
                         <motion.div
-                          key={session.id ?? idx}
+                          key={booking.id ?? idx}
                           initial={{ opacity: 0, x: -10 }}
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: idx * 0.03 }}
@@ -476,36 +523,22 @@ export function UserDashboard() {
                             </div>
                             <div>
                               <p className="font-black text-slate-900 leading-tight">
-                                Session with {session.providerName ?? `Provider #${session.providerId}`}
+                                Session with {booking.practitioner?.fullName || 'Practitioner'}
                               </p>
                               <p className="text-xs text-slate-500 font-semibold">
-                                {session.sessionDate}{' '}
-                                {session.startTime && session.endTime
-                                  ? `${session.startTime} - ${session.endTime}`
-                                  : ''}
-                                {session.duration ? ` · ${session.duration} mins` : ''}
+                                {formatDateToIndian(booking.bookingDate)}{' '}
+                                {booking.startTime ? `@ ${booking.startTime}` : ''}
+                                {booking.duration ? ` · ${booking.duration} mins` : ''}
                               </p>
-                              <p className="text-xs text-slate-500 mt-1 line-clamp-2">
-                                {session.issueDescription}
+                              <p className="text-xs text-slate-500 mt-1 line-clamp-1 italic">
+                                {booking.notes}
                               </p>
                             </div>
                           </div>
                           <div className="flex flex-col items-end gap-2">
-                            {(() => {
-                              const status = getSessionStatus(session)
-                              return (
-                                <span
-                                  className={`px-3 py-1 rounded-full text-[11px] font-semibold ${getSessionStatusClasses(status)}`}
-                                >
-                                  {status}
-                                </span>
-                              )
-                            })()}
-                            {session.providerMessage && (
-                              <span className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded-xl px-3 py-1 max-w-xs text-right">
-                                {session.providerMessage}
-                              </span>
-                            )}
+                            <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase border shadow-sm ${getBookingStatusClasses('Completed')}`}>
+                              COMPLETED
+                            </span>
                           </div>
                         </motion.div>
                       ))
