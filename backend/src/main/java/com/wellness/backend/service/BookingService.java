@@ -61,6 +61,15 @@ public class BookingService {
                 .collect(Collectors.toList());
     }
 
+    /** Returns patient bookings filtered to calendar-relevant statuses only. */
+    public List<BookingResponseDTO> getClientCalendarBookings(Long clientId) {
+        return bookingRepository.findByUser_IdAndStatusIn(
+                clientId,
+                List.of(BookingStatus.ACCEPTED, BookingStatus.CONFIRMED, BookingStatus.RESCHEDULED)).stream()
+                .map(this::mapToResponseDTO)
+                .collect(Collectors.toList());
+    }
+
     public List<BookingResponseDTO> getPractitionerUpcomingBookings(Long practitionerId) {
         return bookingRepository.findByPractitioner_Id(practitionerId).stream()
                 .map(this::mapToResponseDTO)

@@ -23,6 +23,14 @@ public class BookingController {
         return ResponseEntity.ok(bookingService.getClientUpcomingBookings(userId));
     }
 
+    /**
+     * Patient Calendar: returns only ACCEPTED / CONFIRMED / RESCHEDULED bookings
+     */
+    @GetMapping("/user/{userId}/calendar")
+    public ResponseEntity<List<BookingResponseDTO>> getClientCalendarBookings(@PathVariable Long userId) {
+        return ResponseEntity.ok(bookingService.getClientCalendarBookings(userId));
+    }
+
     @PostMapping
     public ResponseEntity<BookingResponseDTO> createBooking(@RequestBody BookingRequestDTO request) {
         return ResponseEntity.ok(bookingService.createBooking(request));
