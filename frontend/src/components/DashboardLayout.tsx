@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { LogOut, Sparkles, Bell } from 'lucide-react'
+import { formatImageUrl } from '../utils/image'
 
 type DashboardLayoutProps = {
   sidebarItems: { label: string; path?: string; active?: boolean; icon: ReactNode; onClick?: () => void }[]
@@ -10,6 +11,7 @@ type DashboardLayoutProps = {
 export function DashboardLayout({ sidebarItems, children }: DashboardLayoutProps) {
   const navigate = useNavigate()
   const userName = localStorage.getItem('userName') || 'Guest'
+  const profileImage = localStorage.getItem('profileImage') || undefined
 
   const handleLogout = () => {
     localStorage.clear()
@@ -90,8 +92,12 @@ export function DashboardLayout({ sidebarItems, children }: DashboardLayoutProps
                 <div className="text-sm font-black text-slate-900 leading-none">{userName}</div>
                 <div className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-tighter">Gold Member</div>
               </div>
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-tr from-brand-600 to-emerald-500 text-lg font-black text-white shadow-lg">
-                {userName[0]}
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-tr from-brand-600 to-emerald-500 text-lg font-black text-white shadow-lg overflow-hidden">
+                {profileImage ? (
+                  <img src={formatImageUrl(profileImage)} alt={userName} className="w-full h-full object-cover" />
+                ) : (
+                  userName[0]
+                )}
               </div>
             </div>
           </div>

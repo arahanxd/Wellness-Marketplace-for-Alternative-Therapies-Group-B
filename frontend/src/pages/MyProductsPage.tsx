@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { DashboardLayout } from '../components/DashboardLayout'
 import { api, type Product, type Profile } from '../api'
+import { formatImageUrl } from '../utils/image'
 import { Package, Plus, Edit2, Trash2, X, CloudUpload, Activity, AlertCircle, Save, ClipboardList, CheckCircle2 } from 'lucide-react'
 
 interface ProductForm {
@@ -160,7 +161,7 @@ export function MyProductsPage() {
                                 <div className="h-56 bg-slate-50 relative overflow-hidden">
                                     {product.imageUrl ? (
                                         <img
-                                            src={product.imageUrl}
+                                            src={formatImageUrl(product.imageUrl)}
                                             alt={product.name}
                                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                         />

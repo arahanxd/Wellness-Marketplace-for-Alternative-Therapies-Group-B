@@ -34,6 +34,7 @@ export interface Profile {
   emailVerified: boolean
   adminComment?: string
   sessionFee?: number
+  profileImage?: string
 }
 
 export interface UserDTO {

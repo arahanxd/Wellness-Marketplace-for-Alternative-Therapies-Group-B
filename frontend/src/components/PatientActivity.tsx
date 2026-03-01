@@ -1,10 +1,14 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import {
-    ShoppingBag, Calendar, CreditCard,
-    TrendingUp, User
+    ShoppingBag,
+    Calendar,
+    CreditCard,
+    TrendingUp,
+    User
 } from 'lucide-react';
 import { formatDateToIndian } from '../utils/date';
+import { formatImageUrl } from '../utils/image';
 import { type PatientAnalytics as AnalyticsData, type Booking, type Order } from '../api';
 
 interface Props {
@@ -53,7 +57,8 @@ export const PatientActivity: React.FC<Props> = ({ data, loading }) => {
 
     return (
         <div className="space-y-12 pb-12">
-            {/* Spend Summary */}
+
+            {/* Activity Summary */}
             <section>
                 <div className="flex items-center gap-4 mb-8">
                     <div className="p-3 bg-indigo-600 rounded-2xl text-white shadow-lg shadow-indigo-500/20">
@@ -61,7 +66,9 @@ export const PatientActivity: React.FC<Props> = ({ data, loading }) => {
                     </div>
                     <div>
                         <h2 className="text-2xl font-black text-slate-900">Activity Hub</h2>
-                        <p className="text-sm text-slate-500 font-medium">Tracking your wellness journey and investments.</p>
+                        <p className="text-sm text-slate-500 font-medium">
+                            Tracking your wellness journey and investments.
+                        </p>
                     </div>
                 </div>
 
@@ -98,6 +105,7 @@ export const PatientActivity: React.FC<Props> = ({ data, loading }) => {
             </section>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
                 {/* Recent Sessions */}
                 <motion.section
                     initial={{ opacity: 0, x: -20 }}
@@ -106,33 +114,66 @@ export const PatientActivity: React.FC<Props> = ({ data, loading }) => {
                     className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-xl shadow-brand-500/5"
                 >
                     <h3 className="text-xl font-black text-slate-900 mb-8 flex items-center gap-3">
-                        <Calendar className="text-brand-500" /> Recent Sessions
+                        <Calendar className="text-brand-500" />
+                        Recent Sessions
                     </h3>
+
                     <div className="space-y-4">
-                        {data.recentSessions && data.recentSessions.length > 0 ? data.recentSessions.map((session: Booking, idx: number) => (
-                            <div key={session.id || idx} className="flex items-center justify-between p-6 bg-slate-50 rounded-[2rem] group hover:bg-brand-50 transition-colors">
-                                <div className="flex items-center gap-4">
-                                    <div className="p-3 bg-white rounded-xl text-brand-600 shadow-sm transition-transform group-hover:scale-110">
-                                        <User size={18} />
+                        {data.recentSessions && data.recentSessions.length > 0 ? (
+                            data.recentSessions.map((session: Booking, idx: number) => (
+                                <div
+                                    key={session.id || idx}
+                                    className="flex items-center justify-between p-6 bg-slate-50 rounded-[2rem] group hover:bg-brand-50 transition-colors"
+                                >
+                                    <div className="flex items-center gap-4">
+
+                                        {/* Profile Image */}
+                                        <div className="w-12 h-12 rounded-xl bg-white overflow-hidden shadow-sm transition-transform group-hover:scale-110">
+                                            {session.practitioner?.profileImage ? (
+                                                <img
+                                                    src={formatImageUrl(session.practitioner.profileImage)}
+                                                    alt={session.practitioner.fullName}
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-brand-600">
+                                                    <User size={18} />
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Practitioner Info */}
+                                        <div>
+                                            <p className="text-sm font-black text-slate-900">
+                                                {session.practitioner?.fullName || 'Practitioner'}
+                                            </p>
+
+                                            <p className="text-[10px] font-bold text-slate-400">
+                                                {session.practitioner?.specialization}
+                                            </p>
+
+                                            <p className="text-[10px] font-bold text-slate-400">
+                                                {formatDateToIndian(session.bookingDate)}
+                                            </p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="text-sm font-black text-slate-900">
-                                            {session.practitionerName || `Practitioner #${session.practitionerId}`}
+
+                                    {/* Fee + Status */}
+                                    <div className="text-right">
+                                        <p className="text-sm font-black text-brand-600">
+                                            {formatCurrency(session.sessionFee || 0)}
                                         </p>
-                                        <p className="text-[10px] font-bold text-slate-400">
-                                            {formatDateToIndian(session.bookingDate)}
-                                        </p>
+
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-white px-2 py-0.5 rounded-full">
+                                            {session.status}
+                                        </span>
                                     </div>
                                 </div>
-                                <div className="text-right">
-                                    <p className="text-sm font-black text-brand-600">{formatCurrency(session.sessionFee || 0)}</p>
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-white px-2 py-0.5 rounded-full">
-                                        {session.status}
-                                    </span>
-                                </div>
-                            </div>
-                        )) : (
-                            <p className="text-center py-10 text-slate-400 font-medium italic">No sessions found</p>
+                            ))
+                        ) : (
+                            <p className="text-center py-10 text-slate-400 font-medium italic">
+                                No sessions found
+                            </p>
                         )}
                     </div>
                 </motion.section>
@@ -145,38 +186,61 @@ export const PatientActivity: React.FC<Props> = ({ data, loading }) => {
                     className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-xl shadow-brand-500/5"
                 >
                     <h3 className="text-xl font-black text-slate-900 mb-8 flex items-center gap-3">
-                        <ShoppingBag className="text-violet-500" /> Product Purchases
+                        <ShoppingBag className="text-violet-500" />
+                        Product Purchases
                     </h3>
+
                     <div className="space-y-4">
-                        {data.recentOrders && data.recentOrders.length > 0 ? data.recentOrders.map((order: Order, idx: number) => (
-                            <div key={order.orderId || idx} className="flex items-center justify-between p-6 bg-slate-50 rounded-[2rem] group hover:bg-violet-50 transition-colors">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-xl bg-white overflow-hidden shadow-sm transition-transform group-hover:scale-110">
-                                        {order.productImage ? (
-                                            <img src={order.productImage} alt={order.productName} className="w-full h-full object-cover" />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-violet-600">
-                                                <ShoppingBag size={20} />
-                                            </div>
-                                        )}
+                        {data.recentOrders && data.recentOrders.length > 0 ? (
+                            data.recentOrders.map((order: Order, idx: number) => (
+                                <div
+                                    key={order.orderId || idx}
+                                    className="flex items-center justify-between p-6 bg-slate-50 rounded-[2rem] group hover:bg-violet-50 transition-colors"
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-xl bg-white overflow-hidden shadow-sm transition-transform group-hover:scale-110">
+                                            {order.productImage ? (
+                                                <img
+                                                    src={formatImageUrl(order.productImage)}
+                                                    alt={order.productName}
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-violet-600">
+                                                    <ShoppingBag size={20} />
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div>
+                                            <p className="text-sm font-black text-slate-900">
+                                                {order.productName}
+                                            </p>
+                                            <p className="text-[10px] font-bold text-slate-400">
+                                                Qty: {order.quantity}
+                                            </p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="text-sm font-black text-slate-900">{order.productName}</p>
-                                        <p className="text-[10px] font-bold text-slate-400">Qty: {order.quantity}</p>
+
+                                    <div className="text-right">
+                                        <p className="text-sm font-black text-violet-600">
+                                            {formatCurrency(order.totalAmount)}
+                                        </p>
+
+                                        <p className="text-[10px] font-bold text-slate-400">
+                                            {formatDateToIndian(order.orderDate)}
+                                        </p>
                                     </div>
                                 </div>
-                                <div className="text-right">
-                                    <p className="text-sm font-black text-violet-600">{formatCurrency(order.totalAmount)}</p>
-                                    <p className="text-[10px] font-bold text-slate-400">
-                                        {formatDateToIndian(order.orderDate)}
-                                    </p>
-                                </div>
-                            </div>
-                        )) : (
-                            <p className="text-center py-10 text-slate-400 font-medium italic">No orders found</p>
+                            ))
+                        ) : (
+                            <p className="text-center py-10 text-slate-400 font-medium italic">
+                                No orders found
+                            </p>
                         )}
                     </div>
                 </motion.section>
+
             </div>
         </div>
     );

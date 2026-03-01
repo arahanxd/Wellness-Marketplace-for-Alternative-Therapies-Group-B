@@ -4,6 +4,7 @@ import { DashboardLayout } from '../components/DashboardLayout'
 import { api, type Order, type Profile } from '../api'
 import { ClipboardList, Package, Activity, ShoppingBag } from 'lucide-react'
 import { formatDateToIndian } from '../utils/date'
+import { formatImageUrl } from '../utils/image'
 
 class OrdersErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
     constructor(props: { children: React.ReactNode }) {
@@ -137,7 +138,7 @@ export function ProductOrdersPage() {
                                                     <div className="w-24 h-24 rounded-[2rem] bg-slate-50 overflow-hidden flex-shrink-0 border border-slate-100">
                                                         {order.productImage ? (
                                                             <img
-                                                                src={order.productImage}
+                                                                src={formatImageUrl(order.productImage)}
                                                                 alt={order.productName}
                                                                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                                             />

@@ -158,6 +158,9 @@ export function PractitionerDashboard() {
     try {
       const res = await api.getProfile();
       setProfile(res);
+      if (res.profileImage) {
+        localStorage.setItem('profileImage', res.profileImage);
+      }
       setEditForm({
         name: res.name,
         city: res.city,

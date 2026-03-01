@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, type Profile, type Booking, type BookingRequest } from '../api';
+import { formatImageUrl } from '../utils/image';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -176,8 +177,12 @@ export function MarketplacePage() {
                             >
                                 {/* Card Header */}
                                 <div className="relative h-40 bg-gradient-to-br from-brand-50 to-violet-50 flex items-center justify-center">
-                                    <div className="h-20 w-20 rounded-3xl bg-white shadow-lg flex items-center justify-center text-brand-600 text-3xl font-black group-hover:scale-110 transition-transform">
-                                        {p.name[0]}
+                                    <div className="h-20 w-20 rounded-3xl bg-white shadow-lg flex items-center justify-center text-brand-600 text-3xl font-black group-hover:scale-110 transition-transform overflow-hidden">
+                                        {p.profileImage ? (
+                                            <img src={formatImageUrl(p.profileImage)} alt={p.name} className="w-full h-full object-cover" />
+                                        ) : (
+                                            p.name[0]
+                                        )}
                                     </div>
                                     {/* Verified badge */}
                                     <div className="absolute top-4 right-4 bg-emerald-500 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter flex items-center gap-1 shadow-lg">
@@ -254,8 +259,12 @@ export function MarketplacePage() {
                                 </button>
 
                                 <div className="flex items-center gap-4 mb-6">
-                                    <div className="h-14 w-14 rounded-2xl bg-brand-50 flex items-center justify-center text-brand-600 text-2xl font-black">
-                                        {bookingPractitioner.name[0]}
+                                    <div className="h-14 w-14 rounded-2xl bg-brand-50 flex items-center justify-center text-brand-600 text-2xl font-black overflow-hidden">
+                                        {bookingPractitioner.profileImage ? (
+                                            <img src={formatImageUrl(bookingPractitioner.profileImage)} alt={bookingPractitioner.name} className="w-full h-full object-cover" />
+                                        ) : (
+                                            bookingPractitioner.name[0]
+                                        )}
                                     </div>
                                     <div className="flex-1">
                                         <h2 className="text-2xl font-black text-slate-900">Book Session</h2>

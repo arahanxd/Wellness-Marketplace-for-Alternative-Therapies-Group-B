@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { formatDateToIndian } from '../utils/date'
+import { formatImageUrl } from '../utils/image'
 import { DashboardLayout } from '../components/DashboardLayout'
 import { SessionCalendar } from '../components/SessionCalendar'
 import { SessionReminderBanner } from '../components/SessionReminderBanner'
 import { PatientActivity } from '../components/PatientActivity'
-import { api, type Profile, type Booking, type SessionBooking, type PatientAnalytics } from '../api'
+import { api, type Profile, type Booking, type PatientAnalytics } from '../api'
 import {
   Calendar, LayoutDashboard, ShoppingBag, MessageSquare, Sparkles, Clock,
   Compass, Activity, User, Mail, MapPin, Globe, Shield, Save, CheckCircle2,
@@ -103,6 +104,9 @@ export function UserDashboard() {
     try {
       const userProfile = await api.getProfile()
       setProfile(userProfile)
+      if (userProfile.profileImage) {
+        localStorage.setItem('profileImage', userProfile.profileImage)
+      }
       setEditForm({
         name: userProfile.name,
         city: userProfile.city,
@@ -369,7 +373,7 @@ export function UserDashboard() {
                               <div className="flex items-start gap-5">
                                 <div className="h-14 w-14 rounded-2xl overflow-hidden bg-brand-50 border border-brand-100 flex-shrink-0">
                                   {p?.profileImage ? (
-                                    <img src={p.profileImage} alt={p.fullName} className="w-full h-full object-cover" />
+                                    <img src={formatImageUrl(p.profileImage)} alt={p.fullName} className="w-full h-full object-cover" />
                                   ) : (
                                     <div className="w-full h-full flex items-center justify-center text-brand-600 font-black text-xl bg-brand-50">
                                       {p?.fullName ? p.fullName[0] : 'P'}
