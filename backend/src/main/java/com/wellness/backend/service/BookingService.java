@@ -147,12 +147,26 @@ public class BookingService {
         return mapToResponseDTO(saved);
     }
 
-    /** Patient cancels a pending/accepted booking */
-    public BookingResponseDTO cancelBooking(Long id) {
+    /** Patient/Practitioner cancels a pending/accepted booking */
+    public BookingResponseDTO cancelBooking(Long id, String cancellerEmail) {
         BookingEntity booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Booking not found"));
+
+        UserEntity canceller = userRepository.findByEmail(cancellerEmail)
+                .orElseThrow(() -> new RuntimeException("Canceller not found"));
+
         booking.setStatus(BookingStatus.CANCELLED);
-        return mapToResponseDTO(bookingRepository.save(booking));
+        BookingEntity saved = bookingRepository.save(booking);
+
+        // Notify the other party
+        try {
+            notificationService.notifyBookingCancelled(saved, canceller);
+            emailService.sendBookingCancelledEmail(saved, canceller);
+        } catch (Exception e) {
+            log.error("Failed to send cancellation notification for booking {}: {}", id, e.getMessage());
+        }
+
+        return mapToResponseDTO(saved);
     }
 
     /** Patient accepts a reschedule suggested by the practitioner */
@@ -251,6 +265,8 @@ public class BookingService {
         dto.setBookingDate(entity.getBookingDate());
         if (entity.getBookingDate() != null) {
             dto.setStartTime(entity.getBookingDate().toLocalTime().toString());
+            int duration = entity.getDuration() != null ? entity.getDuration() : 60;
+            dto.setEndTime(entity.getBookingDate().plusMinutes(duration).toLocalTime().toString());
         }
         dto.setDuration(entity.getDuration());
         dto.setNotes(entity.getNotes());
@@ -270,6 +286,7 @@ public class BookingService {
                     .fullName(p.getName())
                     .specialization(p.getSpecialization())
                     .profileImage(profileImg)
+                    .sessionFee(p.getSessionFee())
                     .build();
 
             dto.setPractitioner(practitionerDto);

@@ -12,6 +12,7 @@ public class BookingResponseDTO {
 
     private LocalDateTime bookingDate;
     private String startTime;
+    private String endTime;
     private Integer duration;
     private String notes; // Patient comment
     private String practitionerComment;

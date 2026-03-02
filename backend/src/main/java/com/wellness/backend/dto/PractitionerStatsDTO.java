@@ -15,5 +15,6 @@ public class PractitionerStatsDTO {
     private Long totalOrders;
     private Long totalProductsSold;
     private Double totalRevenue;
+    private Double sessionRevenueMonthly;
     private Map<String, Double> monthlyRevenue;
 }

@@ -131,6 +131,33 @@ public class SessionBookingService {
     }
 
     @Transactional
+    public SessionBookingResponseDTO cancelSession(Long sessionId, String cancellerEmail) {
+        SessionBookingEntity session = sessionBookingRepository.findById(sessionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Session not found: " + sessionId));
+
+        UserEntity canceller = userRepository.findByEmail(cancellerEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + cancellerEmail));
+
+        // Check if canceller is part of this session
+        if (!isOwner(canceller, session)) {
+            throw new ForbiddenActionException("You are not allowed to cancel this session");
+        }
+
+        session.setStatus(SessionStatus.CANCELLED);
+        SessionBookingEntity saved = sessionBookingRepository.save(session);
+
+        // Notify the other party
+        try {
+            notificationService.notifySessionCancelled(saved, canceller);
+            emailService.sendSessionCancelledEmail(saved, canceller);
+        } catch (Exception e) {
+            log.error("Failed to send cancellation notification for session {}: {}", sessionId, e.getMessage());
+        }
+
+        return toDto(saved);
+    }
+
+    @Transactional
     public SessionBookingResponseDTO confirmReschedule(Long sessionId, String clientEmail) {
         SessionBookingEntity session = sessionBookingRepository.findById(sessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Session not found: " + sessionId));
@@ -266,6 +293,7 @@ public class SessionBookingService {
                 .status(entity.getStatus())
                 .providerMessage(entity.getProviderMessage())
                 .reminderSent(entity.isReminderSent())
+                .sessionFee(entity.getProvider().getSessionFee())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();

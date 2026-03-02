@@ -81,5 +81,11 @@ public class SessionBookingController {
     public ResponseEntity<List<SessionBookingResponseDTO>> getUpcomingReminders(Principal principal) {
         return ResponseEntity.ok(sessionBookingService.findUpcomingRemindersForUser(principal.getName()));
     }
-}
 
+    @PutMapping("/{id}/cancel")
+    public ResponseEntity<SessionBookingResponseDTO> cancelSession(
+            @PathVariable Long id,
+            Principal principal) {
+        return ResponseEntity.ok(sessionBookingService.cancelSession(id, principal.getName()));
+    }
+}

@@ -163,6 +163,31 @@ public class NotificationService {
         createNotification(practitioner, NotificationType.SESSION_REMINDER, practitionerMessage, booking.getId());
     }
 
+    @Transactional
+    public void notifyBookingCancelled(BookingEntity booking, UserEntity canceller) {
+        boolean cancelledByPractitioner = canceller.getId().equals(booking.getPractitioner().getId());
+        UserEntity recipient = cancelledByPractitioner ? booking.getUser() : booking.getPractitioner();
+        String cancellerName = canceller.getName();
+        String dateTime = booking.getBookingDate() != null
+                ? booking.getBookingDate().toLocalDate() + " at "
+                        + booking.getBookingDate().toLocalTime().toString().substring(0, 5)
+                : "scheduled time";
+
+        String message = String.format("🚫 %s has cancelled the session scheduled for %s", cancellerName, dateTime);
+        createNotification(recipient, NotificationType.SESSION_CANCELLED, message, booking.getId());
+    }
+
+    @Transactional
+    public void notifySessionCancelled(SessionBookingEntity session, UserEntity canceller) {
+        boolean cancelledByProvider = canceller.getId().equals(session.getProvider().getId());
+        UserEntity recipient = cancelledByProvider ? session.getClient() : session.getProvider();
+        String cancellerName = canceller.getName();
+
+        String message = String.format("🚫 %s has cancelled the session scheduled for %s at %s",
+                cancellerName, session.getSessionDate(), session.getStartTime());
+        createNotification(recipient, NotificationType.SESSION_CANCELLED, message, session.getId());
+    }
+
     private void createNotification(UserEntity recipient, NotificationType type, String message, Long relatedId) {
         NotificationEntity entity = new NotificationEntity();
         entity.setRecipient(recipient);

@@ -593,7 +593,11 @@ export function UserDashboard() {
                     providerName: b.practitioner?.fullName || 'Practitioner',
                     sessionDate: b.bookingDate, // Assuming ISO format or compatible
                     startTime: b.startTime || '09:00',
-                    endTime: '10:00', // Placeholder or calculation
+                    endTime: b.endTime || (() => {
+                      const d = b.bookingDate ? new Date(b.bookingDate) : new Date();
+                      const dur = b.duration || 60;
+                      return new Date(d.getTime() + dur * 60000).toTimeString().substring(0, 5);
+                    })(),
                     duration: b.duration || 60,
                     issueDescription: b.notes || '',
                     status: 'ACCEPTED' as const

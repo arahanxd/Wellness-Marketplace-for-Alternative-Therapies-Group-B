@@ -42,6 +42,7 @@ export interface UserDTO {
   fullName: string;
   specialization: string;
   profileImage: string;
+  sessionFee?: number;
 }
 
 export interface Booking {
@@ -51,6 +52,7 @@ export interface Booking {
   clientEmail?: string
   bookingDate: string
   startTime?: string
+  endTime?: string
   duration?: number
   notes?: string
   practitionerComment?: string
@@ -99,6 +101,7 @@ export interface PractitionerStats {
   totalOrders: number;
   totalProductsSold: number;
   totalRevenue: number;
+  sessionRevenueMonthly?: number;
   monthlyRevenue: Record<string, number>;
 }
 
@@ -118,6 +121,7 @@ export interface SessionBooking {
   issueDescription: string
   status: 'PENDING' | 'ACCEPTED' | 'RESCHEDULE_REQUESTED' | 'REJECTED' | 'COMPLETED'
   providerMessage?: string
+  sessionFee?: number
   reminderSent?: boolean
   createdAt?: string
   updatedAt?: string

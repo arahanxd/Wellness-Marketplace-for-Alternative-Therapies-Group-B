@@ -76,8 +76,8 @@ public class BookingController {
     }
 
     @PutMapping("/{id}/cancel")
-    public ResponseEntity<BookingResponseDTO> cancelBooking(@PathVariable Long id) {
-        return ResponseEntity.ok(bookingService.cancelBooking(id));
+    public ResponseEntity<BookingResponseDTO> cancelBooking(@PathVariable Long id, java.security.Principal principal) {
+        return ResponseEntity.ok(bookingService.cancelBooking(id, principal.getName()));
     }
 
     @PutMapping("/{id}/accept-reschedule")

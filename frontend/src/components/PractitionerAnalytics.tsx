@@ -11,20 +11,22 @@ interface Props {
     loading: boolean;
 }
 
-const formatCurrency = (amount: number) => {
+const formatCurrency = (amount: number | string) => {
+    const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
     return new Intl.NumberFormat('en-IN', {
         style: 'currency',
         currency: 'INR',
         maximumFractionDigits: 0
-    }).format(amount);
+    }).format(numericAmount || 0);
 };
 
-const GrowthIndicator = ({ percent }: { percent: number }) => {
-    const isPositive = percent >= 0;
+const GrowthIndicator = ({ percent }: { percent: number | string }) => {
+    const numericPercent = typeof percent === 'string' ? parseFloat(percent) : percent;
+    const isPositive = (numericPercent || 0) >= 0;
     return (
         <div className={`flex items-center gap-1 text-xs font-black ${isPositive ? 'text-emerald-500' : 'text-rose-500'}`}>
             {isPositive ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-            <span>{isPositive ? '+' : ''}{percent.toFixed(1)}%</span>
+            <span>{isPositive ? '+' : ''}{(numericPercent || 0).toFixed(1)}%</span>
         </div>
     );
 };
@@ -63,7 +65,39 @@ export const PractitionerAnalytics: React.FC<Props> = ({ data, loading }) => {
         );
     }
 
-    const accumulatedWorth = data.accumulatedRevenue || (data.totalSessionRevenue + data.totalProductRevenue);
+    // Ensure all values are treated as numbers to avoid string concatenation
+    const parseNum = (val: any) => {
+        if (typeof val === 'number') return val;
+        const parsed = parseFloat(val);
+        return isNaN(parsed) ? 0 : parsed;
+    };
+
+    const sessionRevAllTime = parseNum(data.totalSessionRevenue ?? data.sessionRevenueAllTime);
+    const productRevAllTime = parseNum(data.totalProductRevenue ?? data.productRevenueAllTime);
+    const accumulatedWorth = sessionRevAllTime + productRevAllTime;
+
+    const sessionRevMonthly = parseNum(data.sessionRevenueMonthly);
+    const productRevMonthly = parseNum(data.productRevenueMonthly);
+    const totalMonthly = sessionRevMonthly + productRevMonthly;
+
+    const noData = accumulatedWorth === 0 &&
+        parseNum(data.dailyRevenue) === 0 &&
+        parseNum(data.weeklyRevenue) === 0 &&
+        parseNum(data.monthlyRevenue) === 0;
+
+    if (noData) {
+        return (
+            <div className="flex flex-col items-center justify-center p-20 bg-white rounded-[3rem] border border-slate-100 shadow-xl shadow-brand-500/5">
+                <div className="p-8 rounded-full bg-slate-50 border border-slate-100 mb-6">
+                    <PieChart size={48} className="text-slate-300" />
+                </div>
+                <h3 className="text-xl font-black text-slate-900 mb-2">No Performance Data Yet</h3>
+                <p className="text-slate-500 font-medium max-w-sm text-center">
+                    Your analytics will appear here as soon as you start accepting bookings and making product sales.
+                </p>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-12 pb-12">
@@ -83,28 +117,28 @@ export const PractitionerAnalytics: React.FC<Props> = ({ data, loading }) => {
                     <StatCard
                         label="Daily Revenue"
                         value={formatCurrency(data.dailyRevenue)}
-                        growth={data.dailyGrowthPercent}
+                        growth={data.dailyGrowthPercent ?? 0}
                         icon={<Calendar size={20} />}
                         delay={0.1}
                     />
                     <StatCard
                         label="Weekly Revenue"
                         value={formatCurrency(data.weeklyRevenue)}
-                        growth={data.weeklyGrowthPercent}
+                        growth={data.weeklyGrowthPercent ?? 0}
                         icon={<Activity size={20} />}
                         delay={0.2}
                     />
                     <StatCard
                         label="Monthly Revenue"
                         value={formatCurrency(data.monthlyRevenue)}
-                        growth={data.monthlyGrowthPercent}
+                        growth={data.monthlyGrowthPercent ?? 0}
                         icon={<PieChart size={20} />}
                         delay={0.3}
                     />
                     <StatCard
                         label="Yearly Revenue"
                         value={formatCurrency(data.yearlyRevenue)}
-                        growth={data.yearlyGrowthPercent}
+                        growth={data.yearlyGrowthPercent ?? 0}
                         icon={<TrendingUp size={20} />}
                         delay={0.4}
                     />
@@ -127,22 +161,26 @@ export const PractitionerAnalytics: React.FC<Props> = ({ data, loading }) => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                             <div className="space-y-2">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Session Revenue</p>
-                                <p className="text-4xl font-black">{formatCurrency(data.totalSessionRevenue)}</p>
-                                <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                                    <div
+                                <p className="text-4xl font-black">{formatCurrency(sessionRevAllTime)}</p>
+                                <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                    <motion.div
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${accumulatedWorth > 0 ? (sessionRevAllTime / accumulatedWorth) * 100 : 0}%` }}
+                                        transition={{ duration: 1, delay: 0.8 }}
                                         className="h-full bg-brand-500 rounded-full"
-                                        style={{ width: `${accumulatedWorth > 0 ? (data.totalSessionRevenue / accumulatedWorth) * 100 : 0}%` }}
                                     />
                                 </div>
                             </div>
 
                             <div className="space-y-2">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Product Revenue</p>
-                                <p className="text-4xl font-black">{formatCurrency(data.totalProductRevenue)}</p>
-                                <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                                    <div
+                                <p className="text-4xl font-black">{formatCurrency(productRevAllTime)}</p>
+                                <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                    <motion.div
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${accumulatedWorth > 0 ? (productRevAllTime / accumulatedWorth) * 100 : 0}%` }}
+                                        transition={{ duration: 1, delay: 1 }}
                                         className="h-full bg-violet-500 rounded-full"
-                                        style={{ width: `${accumulatedWorth > 0 ? (data.totalProductRevenue / accumulatedWorth) * 100 : 0}%` }}
                                     />
                                 </div>
                             </div>
@@ -155,7 +193,7 @@ export const PractitionerAnalytics: React.FC<Props> = ({ data, loading }) => {
                             </div>
                             <div className="text-right">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">All Time Total</p>
-                                <p className="text-2xl font-black text-white/50">{formatCurrency(data.allTimeRevenue)}</p>
+                                <p className="text-2xl font-black text-white/50">{formatCurrency(parseNum(data.allTimeRevenue))}</p>
                             </div>
                         </div>
                     </div>
@@ -179,7 +217,7 @@ export const PractitionerAnalytics: React.FC<Props> = ({ data, loading }) => {
                                 <div className="w-4 h-4 rounded-full bg-brand-500" />
                                 <span className="text-sm font-bold text-slate-700">Sessions</span>
                             </div>
-                            <span className="text-sm font-black text-slate-900">{formatCurrency(data.sessionRevenueMonthly)}</span>
+                            <span className="text-sm font-black text-slate-900">{formatCurrency(sessionRevMonthly)}</span>
                         </div>
 
                         <div className="flex items-center justify-between">
@@ -187,18 +225,22 @@ export const PractitionerAnalytics: React.FC<Props> = ({ data, loading }) => {
                                 <div className="w-4 h-4 rounded-full bg-violet-500" />
                                 <span className="text-sm font-bold text-slate-700">Products</span>
                             </div>
-                            <span className="text-sm font-black text-slate-900">{formatCurrency(data.productRevenueMonthly)}</span>
+                            <span className="text-sm font-black text-slate-900">{formatCurrency(productRevMonthly)}</span>
                         </div>
 
                         <div className="relative pt-8">
-                            <div className="h-4 bg-slate-50 rounded-full flex overflow-hidden">
-                                <div
-                                    className="h-full bg-brand-500"
-                                    style={{ width: `${(data.sessionRevenueMonthly / (data.sessionRevenueMonthly + data.productRevenueMonthly || 1)) * 100}%` }}
+                            <div className="h-5 bg-slate-50 rounded-full flex overflow-hidden border border-slate-100 p-0.5">
+                                <motion.div
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${totalMonthly > 0 ? (sessionRevMonthly / totalMonthly) * 100 : 0}%` }}
+                                    transition={{ duration: 1, delay: 1.2 }}
+                                    className="h-full bg-brand-500 rounded-l-full"
                                 />
-                                <div
-                                    className="h-full bg-violet-500"
-                                    style={{ width: `${(data.productRevenueMonthly / (data.sessionRevenueMonthly + data.productRevenueMonthly || 1)) * 100}%` }}
+                                <motion.div
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${totalMonthly > 0 ? (productRevMonthly / totalMonthly) * 100 : 0}%` }}
+                                    transition={{ duration: 1, delay: 1.4 }}
+                                    className="h-full bg-violet-500 rounded-r-full"
                                 />
                             </div>
                         </div>
@@ -206,7 +248,11 @@ export const PractitionerAnalytics: React.FC<Props> = ({ data, loading }) => {
 
                     <div className="mt-8 p-6 bg-brand-50 rounded-3xl border border-brand-100">
                         <p className="text-xs text-brand-700 font-bold leading-relaxed">
-                            Your session revenue accounts for {((data.sessionRevenueMonthly / (data.sessionRevenueMonthly + data.productRevenueMonthly || 1)) * 100).toFixed(1)}% of this month's earnings.
+                            {totalMonthly > 0 ? (
+                                <>Your session revenue accounts for {((sessionRevMonthly / totalMonthly) * 100).toFixed(1)}% of this month's earnings.</>
+                            ) : (
+                                <>No earnings recorded for the current month yet.</>
+                            )}
                         </p>
                     </div>
                 </motion.div>

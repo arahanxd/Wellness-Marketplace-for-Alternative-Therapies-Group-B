@@ -7,6 +7,7 @@ import com.wellness.backend.exception.ResourceNotFoundException;
 import com.wellness.backend.model.OrderEntity;
 import com.wellness.backend.model.ProductEntity;
 import com.wellness.backend.model.UserEntity;
+import com.wellness.backend.repository.BookingRepository;
 import com.wellness.backend.repository.OrderRepository;
 import com.wellness.backend.repository.ProductRepository;
 import com.wellness.backend.repository.UserRepository;
@@ -29,6 +30,7 @@ public class OrderService {
         private final OrderRepository orderRepository;
         private final ProductRepository productRepository;
         private final UserRepository userRepository;
+        private final BookingRepository bookingRepository;
 
         public List<OrderDTO> getOrdersByUserId(Long userId) {
                 return orderRepository.findByUser_Id(userId).stream()
@@ -72,9 +74,15 @@ public class OrderService {
 
                 long totalOrders = orders.size();
                 long totalProductsSold = orders.stream().mapToLong(OrderEntity::getQuantity).sum();
-                double totalRevenue = orders.stream()
+                double productRevenue = orders.stream()
                                 .mapToDouble(o -> o.getTotalPrice().doubleValue())
                                 .sum();
+
+                // Get session revenue
+                BigDecimal sessionRev = bookingRepository.sumTotalSessionRevenueByPractitioner(providerId);
+                double totalSessionRevenue = sessionRev != null ? sessionRev.doubleValue() : 0.0;
+
+                double totalRevenue = productRevenue + totalSessionRevenue;
 
                 // Monthly revenue for the last 6 months (simplification or using order dates)
                 Map<String, Double> monthlyRevenue = orders.stream()
@@ -84,10 +92,18 @@ public class OrderService {
                                                 LinkedHashMap::new,
                                                 Collectors.summingDouble(o -> o.getTotalPrice().doubleValue())));
 
+                // Also add session revenue to monthly split if available for current month
+                LocalDateTime now = LocalDateTime.now();
+
+                BigDecimal sessionMonthly = bookingRepository.sumSessionRevenueByPractitionerAndDateRange(
+                                providerId, now.withDayOfMonth(1).with(java.time.LocalTime.MIN), now);
+                double currentMonthSessionRev = sessionMonthly != null ? sessionMonthly.doubleValue() : 0.0;
+
                 return PractitionerStatsDTO.builder()
                                 .totalOrders(totalOrders)
                                 .totalProductsSold(totalProductsSold)
                                 .totalRevenue(totalRevenue)
+                                .sessionRevenueMonthly(currentMonthSessionRev)
                                 .monthlyRevenue(monthlyRevenue)
                                 .build();
         }

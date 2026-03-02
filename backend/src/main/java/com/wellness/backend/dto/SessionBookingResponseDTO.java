@@ -31,6 +31,7 @@ public class SessionBookingResponseDTO {
     private String providerMessage;
 
     private boolean reminderSent;
+    private java.math.BigDecimal sessionFee;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

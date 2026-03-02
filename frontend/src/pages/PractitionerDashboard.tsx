@@ -903,8 +903,8 @@ export function PractitionerDashboard() {
                     providerName: profile?.name ?? '',
                     sessionDate: `${year}-${month}-${day}`,
                     startTime: `${hh}:${mm}`,
-                    endTime: `${ehh}:${emm}`,
-                    duration: 60,
+                    endTime: b.endTime || `${ehh}:${emm}`,
+                    duration: b.duration || 60,
                     issueDescription: b.notes ?? '',
                     status: 'ACCEPTED' as const,
                   }

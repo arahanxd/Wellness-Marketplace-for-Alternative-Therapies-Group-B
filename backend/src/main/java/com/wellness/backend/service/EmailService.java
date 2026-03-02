@@ -273,6 +273,51 @@ public class EmailService {
                 sendEmail(message);
         }
 
+        public void sendBookingCancelledEmail(com.wellness.backend.model.BookingEntity booking,
+                        com.wellness.backend.model.UserEntity canceller) {
+                boolean cancelledByPractitioner = canceller.getId().equals(booking.getPractitioner().getId());
+                com.wellness.backend.model.UserEntity recipient = cancelledByPractitioner ? booking.getUser()
+                                : booking.getPractitioner();
+
+                SimpleMailMessage message = new SimpleMailMessage();
+                message.setFrom(fromEmail);
+                message.setTo(recipient.getEmail());
+                message.setSubject("🚫 Wellness Hub – Session Cancelled");
+
+                String dateTime = booking.getBookingDate() != null
+                                ? booking.getBookingDate().toString().replace("T", " at ")
+                                : "N/A";
+
+                message.setText("Dear " + recipient.getName() + ",\n\n"
+                                + "This is to inform you that your session has been cancelled.\n\n"
+                                + "Cancelled by: " + canceller.getName() + "\n"
+                                + "Date & Time: " + dateTime + "\n\n"
+                                + "If this was unexpected, please contact support or the other party.\n\n"
+                                + "Best regards,\nWellness Hub");
+                sendEmail(message);
+        }
+
+        public void sendSessionCancelledEmail(com.wellness.backend.model.SessionBookingEntity session,
+                        com.wellness.backend.model.UserEntity canceller) {
+                boolean cancelledByProvider = canceller.getId().equals(session.getProvider().getId());
+                com.wellness.backend.model.UserEntity recipient = cancelledByProvider ? session.getClient()
+                                : session.getProvider();
+
+                SimpleMailMessage message = new SimpleMailMessage();
+                message.setFrom(fromEmail);
+                message.setTo(recipient.getEmail());
+                message.setSubject("🚫 Wellness Hub – Session Cancelled");
+
+                message.setText("Dear " + recipient.getName() + ",\n\n"
+                                + "This is to inform you that your session has been cancelled.\n\n"
+                                + "Cancelled by: " + canceller.getName() + "\n"
+                                + "Date: " + session.getSessionDate() + "\n"
+                                + "Time: " + session.getStartTime() + "\n\n"
+                                + "If this was unexpected, please contact support or the other party.\n\n"
+                                + "Best regards,\nWellness Hub");
+                sendEmail(message);
+        }
+
         private void sendEmail(SimpleMailMessage message) {
                 String recipient = (message.getTo() != null && message.getTo().length > 0) ? message.getTo()[0]
                                 : "unknown";

@@ -6,5 +6,6 @@ public enum SessionStatus {
     CONFIRMED,
     RESCHEDULE_REQUESTED,
     REJECTED,
-    COMPLETED
+    COMPLETED,
+    CANCELLED
 }
