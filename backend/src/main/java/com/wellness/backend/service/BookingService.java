@@ -10,6 +10,7 @@ import com.wellness.backend.model.UserEntity;
 import com.wellness.backend.repository.BookingRepository;
 import com.wellness.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -18,6 +19,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class BookingService {
 
     private final BookingRepository bookingRepository;
@@ -95,13 +97,14 @@ public class BookingService {
     public BookingResponseDTO acceptBooking(Long id) {
         BookingEntity booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Booking not found"));
-        booking.setStatus(BookingStatus.ACCEPTED);
+        booking.setStatus(BookingStatus.CONFIRMED);
         BookingEntity saved = bookingRepository.save(booking);
         // Notify patient via in-app + email
         notificationService.notifyBookingAcceptedForClient(saved);
         try {
             emailService.sendBookingConfirmedToClient(saved);
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            log.error("Failed to send booking confirmation email for booking {}: {}", id, e.getMessage());
         }
         return mapToResponseDTO(saved);
     }
@@ -159,13 +162,14 @@ public class BookingService {
         if (booking.getStatus() != BookingStatus.RESCHEDULED) {
             throw new IllegalStateException("Booking is not in RESCHEDULED state");
         }
-        booking.setStatus(BookingStatus.ACCEPTED);
+        booking.setStatus(BookingStatus.CONFIRMED);
         BookingEntity saved = bookingRepository.save(booking);
         // Notify patient of acceptance
         notificationService.notifyBookingAcceptedForClient(saved);
         try {
             emailService.sendBookingConfirmedToClient(saved);
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            log.error("Failed to send reschedule confirmation email for booking {}: {}", id, e.getMessage());
         }
         return mapToResponseDTO(saved);
     }
@@ -193,18 +197,22 @@ public class BookingService {
     public void processSessionReminders() {
         LocalDateTime now = LocalDateTime.now();
         List<BookingEntity> candidates = bookingRepository
-                .findByStatusAndReminderSentFalse(BookingStatus.ACCEPTED);
+                .findByStatusInAndReminderSentFalse(List.of(BookingStatus.CONFIRMED, BookingStatus.ACCEPTED));
+
+        log.info("🔍 Checking {} bookings for reminders...", candidates.size());
 
         for (BookingEntity booking : candidates) {
             if (isWithinExact30MinuteWindow(booking, now)) {
                 try {
+                    log.info("📩 Sending reminder for booking ID: {} (Session starts at: {})", booking.getId(),
+                            booking.getBookingDate());
                     sendReminderEmails(booking);
                     notificationService.notifyBookingReminder(booking);
                     booking.setReminderSent(true);
                     bookingRepository.save(booking);
+                    log.info("✅ Reminder sent and marked for booking ID: {}", booking.getId());
                 } catch (Exception e) {
-                    System.err
-                            .println("Failed to send reminder for booking " + booking.getId() + ": " + e.getMessage());
+                    log.error("❌ Failed to send reminder for booking {}: {}", booking.getId(), e.getMessage());
                 }
             }
         }
@@ -215,7 +223,9 @@ public class BookingService {
         if (start == null)
             return false;
         long minutesDiff = java.time.temporal.ChronoUnit.MINUTES.between(now, start);
-        return minutesDiff >= 30 && minutesDiff < 35;
+        // Window: exact 30 minutes, allowing for small execution delay (up to 31
+        // minutes from now)
+        return minutesDiff >= 29 && minutesDiff <= 31;
     }
 
     private void sendReminderEmails(BookingEntity booking) {

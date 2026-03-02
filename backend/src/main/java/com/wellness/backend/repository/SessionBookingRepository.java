@@ -15,8 +15,7 @@ public interface SessionBookingRepository extends JpaRepository<SessionBookingEn
 
     List<SessionBookingEntity> findByClient_Id(Long clientId);
 
-    List<SessionBookingEntity> findByStatusAndReminderSentFalse(SessionStatus status);
+    List<SessionBookingEntity> findByStatusInAndReminderSentFalse(List<SessionStatus> statuses);
 
     List<SessionBookingEntity> findBySessionDateAndStatus(LocalDate sessionDate, SessionStatus status);
 }
-

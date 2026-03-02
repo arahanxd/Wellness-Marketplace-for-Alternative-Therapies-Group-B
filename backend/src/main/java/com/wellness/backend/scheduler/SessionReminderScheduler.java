@@ -2,20 +2,28 @@ package com.wellness.backend.scheduler;
 
 import com.wellness.backend.service.SessionBookingService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class SessionReminderScheduler {
 
     private final SessionBookingService sessionBookingService;
     private final com.wellness.backend.service.BookingService bookingService;
 
-    // Runs every 5 minutes
-    @Scheduled(fixedRate = 300_000)
+    // Runs every 1 minute
+    @Scheduled(fixedRate = 60_000)
     public void runSessionReminders() {
-        sessionBookingService.processSessionReminders();
-        bookingService.processSessionReminders();
+        log.info("⏰ Session Reminder Scheduler started...");
+        try {
+            sessionBookingService.processSessionReminders();
+            bookingService.processSessionReminders();
+        } catch (Exception e) {
+            log.error("❌ Error during session reminder processing", e);
+        }
+        log.info("✅ Session Reminder Scheduler finished.");
     }
 }

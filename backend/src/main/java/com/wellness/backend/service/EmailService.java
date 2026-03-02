@@ -179,6 +179,7 @@ public class EmailService {
         }
 
         public void sendSessionReminderToClient(com.wellness.backend.model.SessionBookingEntity session) {
+                log.info("🔔 Preparing session reminder for client (Session): {}", session.getClient().getEmail());
                 String to = session.getClient().getEmail();
                 String doctorName = session.getProvider().getName();
                 String date = session.getSessionDate().toString();
@@ -203,6 +204,7 @@ public class EmailService {
         }
 
         public void sendSessionReminderToClient(com.wellness.backend.model.BookingEntity booking) {
+                log.info("🔔 Preparing session reminder for client: {}", booking.getUser().getEmail());
                 String to = booking.getUser().getEmail();
                 String practitionerName = booking.getPractitioner().getName();
                 String dateTime = booking.getBookingDate().toString().replace("T", " at ");
@@ -224,6 +226,7 @@ public class EmailService {
         }
 
         public void sendSessionReminderToProvider(com.wellness.backend.model.SessionBookingEntity session) {
+                log.info("🔔 Preparing session reminder for provider (Session): {}", session.getProvider().getEmail());
                 String to = session.getProvider().getEmail();
                 String patientName = session.getClient().getName();
                 String date = session.getSessionDate().toString();
@@ -248,6 +251,8 @@ public class EmailService {
         }
 
         public void sendSessionReminderToProvider(com.wellness.backend.model.BookingEntity booking) {
+                log.info("🔔 Preparing session reminder for practitioner (Booking): {}",
+                                booking.getPractitioner().getEmail());
                 String to = booking.getPractitioner().getEmail();
                 String patientName = booking.getUser().getName();
                 String dateTime = booking.getBookingDate().toString().replace("T", " at ");

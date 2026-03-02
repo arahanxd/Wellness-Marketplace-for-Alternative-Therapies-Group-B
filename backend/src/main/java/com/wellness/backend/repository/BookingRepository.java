@@ -41,7 +41,7 @@ public interface BookingRepository extends JpaRepository<BookingEntity, Long> {
 
     long countByUser_IdAndStatusIn(Long userId, List<com.wellness.backend.model.BookingStatus> statuses);
 
-    List<BookingEntity> findByStatusAndReminderSentFalse(BookingStatus status);
+    List<BookingEntity> findByStatusInAndReminderSentFalse(List<BookingStatus> statuses);
 
     List<BookingEntity> findTop5ByUser_IdOrderByBookingDateDesc(Long userId);
 }

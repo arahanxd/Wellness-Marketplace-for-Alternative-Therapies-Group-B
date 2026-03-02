@@ -12,6 +12,7 @@ import com.wellness.backend.model.UserEntity;
 import com.wellness.backend.repository.SessionBookingRepository;
 import com.wellness.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +25,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class SessionBookingService {
 
     private final SessionBookingRepository sessionBookingRepository;
@@ -82,7 +84,7 @@ public class SessionBookingService {
     @Transactional
     public SessionBookingResponseDTO acceptSession(Long sessionId, String providerEmail, SessionStatusUpdateDTO body) {
         SessionBookingEntity session = loadAndValidateProviderOwnership(sessionId, providerEmail);
-        session.setStatus(SessionStatus.ACCEPTED);
+        session.setStatus(SessionStatus.CONFIRMED);
         if (body != null && body.getProviderMessage() != null) {
             session.setProviderMessage(body.getProviderMessage());
         }
@@ -141,7 +143,7 @@ public class SessionBookingService {
             throw new IllegalStateException("Session is not awaiting reschedule confirmation");
         }
 
-        session.setStatus(SessionStatus.ACCEPTED);
+        session.setStatus(SessionStatus.CONFIRMED);
         session.setReminderSent(false);
 
         SessionBookingEntity saved = sessionBookingRepository.save(session);
@@ -155,7 +157,7 @@ public class SessionBookingService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + email));
 
         List<SessionBookingEntity> candidates = sessionBookingRepository
-                .findByStatusAndReminderSentFalse(SessionStatus.ACCEPTED);
+                .findByStatusInAndReminderSentFalse(List.of(SessionStatus.CONFIRMED, SessionStatus.ACCEPTED));
 
         return candidates.stream()
                 .filter(s -> isOwner(user, s))
@@ -169,19 +171,22 @@ public class SessionBookingService {
         LocalDateTime now = LocalDateTime.now();
 
         List<SessionBookingEntity> candidates = sessionBookingRepository
-                .findByStatusAndReminderSentFalse(SessionStatus.ACCEPTED);
+                .findByStatusInAndReminderSentFalse(List.of(SessionStatus.CONFIRMED, SessionStatus.ACCEPTED));
+
+        log.info("🔍 Checking {} sessions for reminders...", candidates.size());
 
         for (SessionBookingEntity session : candidates) {
             if (isWithinExact30MinuteWindow(session, now)) {
                 try {
+                    log.info("📩 Sending reminder for session ID: {} (Session starts at: {} {})", session.getId(),
+                            session.getSessionDate(), session.getStartTime());
                     sendReminderEmails(session);
                     notificationService.notifySessionReminder(session);
                     session.setReminderSent(true);
                     sessionBookingRepository.save(session);
+                    log.info("✅ Reminder sent and marked for session ID: {}", session.getId());
                 } catch (Exception e) {
-                    // Log and continue with others; do not break scheduler
-                    System.out
-                            .println("Failed to send reminder for session " + session.getId() + ": " + e.getMessage());
+                    log.error("❌ Failed to send reminder for session {}: {}", session.getId(), e.getMessage());
                 }
             }
         }
@@ -203,7 +208,8 @@ public class SessionBookingService {
     private boolean isWithinExact30MinuteWindow(SessionBookingEntity session, LocalDateTime now) {
         LocalDateTime start = LocalDateTime.of(session.getSessionDate(), session.getStartTime());
         long minutesDiff = ChronoUnit.MINUTES.between(now, start);
-        return minutesDiff >= 30 && minutesDiff < 35;
+        // Window: 29-31 minutes
+        return minutesDiff >= 29 && minutesDiff <= 31;
     }
 
     private void sendReminderEmails(SessionBookingEntity session) {
