@@ -12,6 +12,7 @@ import com.wellness.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -67,8 +68,12 @@ public class BookingService {
         return mapToResponseDTO(saved);
     }
 
+    @Transactional(readOnly = true)
     public List<BookingResponseDTO> getClientUpcomingBookings(Long clientId) {
-        return bookingRepository.findByUser_Id(clientId).stream()
+        LocalDateTime now = LocalDateTime.now();
+        List<BookingStatus> excluded = List.of(BookingStatus.COMPLETED, BookingStatus.NOT_COMPLETED);
+
+        return bookingRepository.findUpcomingBookingsByUser(clientId, now, excluded).stream()
                 .map(this::mapToResponseDTO)
                 .collect(Collectors.toList());
     }
@@ -82,8 +87,12 @@ public class BookingService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public List<BookingResponseDTO> getPractitionerUpcomingBookings(Long practitionerId) {
-        return bookingRepository.findByPractitioner_Id(practitionerId).stream()
+        LocalDateTime now = LocalDateTime.now();
+        List<BookingStatus> excluded = List.of(BookingStatus.COMPLETED, BookingStatus.NOT_COMPLETED);
+
+        return bookingRepository.findUpcomingBookingsByPractitioner(practitionerId, now, excluded).stream()
                 .map(this::mapToResponseDTO)
                 .collect(Collectors.toList());
     }
@@ -273,6 +282,7 @@ public class BookingService {
         dto.setPractitionerComment(entity.getPractitionerComment());
         dto.setStatus(entity.getStatus() != null ? entity.getStatus().name() : null);
         dto.setSessionFee(entity.getSessionFee());
+        dto.setRefunded(entity.isRefunded());
 
         if (entity.getPractitioner() != null) {
             UserEntity p = entity.getPractitioner();

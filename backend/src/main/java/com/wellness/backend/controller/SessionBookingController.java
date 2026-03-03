@@ -88,4 +88,20 @@ public class SessionBookingController {
             Principal principal) {
         return ResponseEntity.ok(sessionBookingService.cancelSession(id, principal.getName()));
     }
+
+    @PutMapping("/{id}/complete")
+    @PreAuthorize("hasRole('PROVIDER')")
+    public ResponseEntity<SessionBookingResponseDTO> completeSession(
+            @PathVariable Long id,
+            Principal principal) {
+        return ResponseEntity.ok(sessionBookingService.completeSession(id, principal.getName()));
+    }
+
+    @PutMapping("/{id}/not-complete")
+    @PreAuthorize("hasRole('PROVIDER')")
+    public ResponseEntity<SessionBookingResponseDTO> markSessionNotCompleted(
+            @PathVariable Long id,
+            Principal principal) {
+        return ResponseEntity.ok(sessionBookingService.markSessionNotCompleted(id, principal.getName()));
+    }
 }

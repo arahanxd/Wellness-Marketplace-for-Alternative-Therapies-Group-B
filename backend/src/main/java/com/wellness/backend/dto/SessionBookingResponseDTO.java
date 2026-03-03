@@ -29,8 +29,10 @@ public class SessionBookingResponseDTO {
 
     private SessionStatus status;
     private String providerMessage;
+    private String dateStatusColor;
 
     private boolean reminderSent;
+    private boolean refunded;
     private java.math.BigDecimal sessionFee;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

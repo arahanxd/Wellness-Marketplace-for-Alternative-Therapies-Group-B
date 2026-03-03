@@ -414,6 +414,16 @@ export const api = {
     return response.data
   },
 
+  async completeSession(id: number): Promise<SessionBooking> {
+    const response = await apiClient.put(`/sessions/${id}/complete`)
+    return response.data
+  },
+
+  async notCompleteSession(id: number): Promise<SessionBooking> {
+    const response = await apiClient.put(`/sessions/${id}/not-complete`)
+    return response.data
+  },
+
   async getNotifications(): Promise<Notification[]> {
     const response = await apiClient.get('/notifications')
     return response.data

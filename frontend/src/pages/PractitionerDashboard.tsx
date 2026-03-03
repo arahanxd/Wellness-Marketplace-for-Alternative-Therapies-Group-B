@@ -43,25 +43,29 @@ function VerificationStatusBadge({ status }: { status?: string }) {
   )
 }
 
-const getSessionStatus = (booking: Booking): 'Pending' | 'Ongoing' | 'Completed' | 'Upcoming' => {
-  const { bookingDate, startTime, duration, status } = booking
+const getSessionStatus = (booking: any): 'Pending' | 'Ongoing' | 'Completed' | 'Upcoming' | 'Not Completed' => {
+  const { bookingDate, sessionDate, startTime, duration, status } = booking
   if (status === 'COMPLETED') return 'Completed'
-  if (!bookingDate || !startTime) return 'Pending'
+  if (status === 'NOT_COMPLETED') return 'Not Completed'
+  const dateStr = (bookingDate || sessionDate || '').split('T')[0]
+  if (!dateStr || !startTime) return 'Pending'
 
   const now = new Date()
-  const start = new Date(bookingDate)
+  // Combine date and time precisely for comparison
+  const sessionDateTime = new Date(`${dateStr}T${startTime}`)
   const dur = duration || 60
-  const end = new Date(start.getTime() + dur * 60 * 1000)
+  const end = new Date(sessionDateTime.getTime() + dur * 60 * 1000)
 
-  if (now < start) return 'Upcoming'
-  if (now >= start && now <= end) return 'Ongoing'
+  if (now < sessionDateTime) return 'Upcoming'
+  if (now >= sessionDateTime && now <= end) return 'Ongoing'
   return 'Completed'
 }
 
 const getSessionStatusClasses = (status: ReturnType<typeof getSessionStatus>) => {
   if (status === 'Pending') return 'bg-yellow-100 text-yellow-700'
   if (status === 'Ongoing') return 'bg-blue-100 text-blue-700'
-  return 'bg-green-100 text-green-700'
+  if (status === 'Not Completed') return 'bg-rose-100 text-rose-700 font-black'
+  return 'bg-green-100 text-green-700 font-black'
 }
 
 function PractitionerRevenueStats({ stats, loading }: { stats: PractitionerStats | null, loading: boolean }) {
@@ -169,8 +173,19 @@ export function PractitionerDashboard() {
         sessionFee: res.sessionFee,
       });
       if (res.id) {
-        const bookingRes = await api.getPractitionerBookings(res.id);
-        setBookings(bookingRes);
+        const [bookingRes, sessionRes] = await Promise.all([
+          api.getPractitionerBookings(res.id),
+          api.getProviderSessions(res.id)
+        ]);
+
+        // Normalize sessions to match booking properties for the UI if necessary
+        const normalizedSessions = sessionRes.map(s => ({
+          ...s,
+          bookingDate: s.sessionDate, // mapping sessionDate to bookingDate for components
+          isSmartSession: true // marker to use specialized endpoints
+        }));
+
+        setBookings([...bookingRes, ...normalizedSessions] as any);
         fetchStats(res.id);
         fetchAnalytics(res.id);
       }
@@ -241,16 +256,45 @@ export function PractitionerDashboard() {
     }
   };
 
-  const completeBooking = async (id?: number) => {
-    if (!id) return;
-    setSessionActionLoadingId(id);
+  const completeBooking = async (booking: any) => {
+    if (!booking?.id) return;
+    setSessionActionLoadingId(booking.id);
     try {
-      const updated = await api.completeBooking(id);
-      setBookings((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
+      const updated = booking.isSmartSession
+        ? await api.completeSession(booking.id)
+        : await api.completeBooking(booking.id);
+
+      const normalized = booking.isSmartSession
+        ? { ...updated, bookingDate: (updated as any).sessionDate, isSmartSession: true }
+        : updated;
+
+      setBookings((prev) => prev.map((b) => (b.id === booking.id ? normalized : b)) as any);
       setMessage('Session marked as completed');
     } catch (err) {
       console.error(err);
       setMessage('Failed to complete session');
+    } finally {
+      setSessionActionLoadingId(null);
+    }
+  };
+
+  const markSessionNotCompleted = async (booking: any) => {
+    if (!booking?.id) return;
+    setSessionActionLoadingId(booking.id);
+    try {
+      const updated = booking.isSmartSession
+        ? await api.notCompleteSession(booking.id)
+        : await api.rejectBooking(booking.id); // fallback or different logic for standard bookings
+
+      const normalized = booking.isSmartSession
+        ? { ...updated, bookingDate: (updated as any).sessionDate, isSmartSession: true }
+        : updated;
+
+      setBookings((prev) => prev.map((b) => (b.id === booking.id ? normalized : b)) as any);
+      setMessage('Session marked as NOT completed (Refund triggered)');
+    } catch (err) {
+      console.error(err);
+      setMessage('Failed to update session status');
     } finally {
       setSessionActionLoadingId(null);
     }
@@ -514,10 +558,16 @@ export function PractitionerDashboard() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-50">
-                        {bookings.length > 0 ? (
+                        {bookings.filter(b => {
+                          const status = getSessionStatus(b);
+                          return status === 'Upcoming' || status === 'Ongoing';
+                        }).length > 0 ? (
                           bookings
-                            .slice()
-                            .sort((a, b) => new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime())
+                            .filter(b => {
+                              const status = getSessionStatus(b);
+                              return status === 'Upcoming' || status === 'Ongoing';
+                            })
+                            .sort((a, b) => new Date(a.bookingDate).getTime() - new Date(b.bookingDate).getTime())
                             .map((booking, idx) => (
                               <motion.tr
                                 key={booking.id}
@@ -839,14 +889,25 @@ export function PractitionerDashboard() {
                                     {!booking.notes && !booking.practitionerComment && <span className="italic">-</span>}
                                   </td>
                                   <td className="py-4 pr-4 text-right">
-                                    {booking.status !== 'COMPLETED' && status === 'Completed' && (
-                                      <button
-                                        onClick={() => completeBooking(booking.id)}
-                                        disabled={sessionActionLoadingId === booking.id}
-                                        className="text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:text-emerald-700 transition-colors"
-                                      >
-                                        {sessionActionLoadingId === booking.id ? '...' : 'Mark Completed'}
-                                      </button>
+                                    {booking.status !== 'COMPLETED' && booking.status !== 'NOT_COMPLETED' && status === 'Completed' && (
+                                      <div className="flex justify-end gap-3">
+                                        <button
+                                          onClick={() => completeBooking(booking)}
+                                          disabled={sessionActionLoadingId === booking.id}
+                                          className="text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:text-emerald-700 transition-colors flex items-center gap-1 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-100"
+                                        >
+                                          <CheckCircle2 size={12} />
+                                          {sessionActionLoadingId === booking.id ? '...' : 'Mark Completed'}
+                                        </button>
+                                        <button
+                                          onClick={() => markSessionNotCompleted(booking)}
+                                          disabled={sessionActionLoadingId === booking.id}
+                                          className="text-[10px] font-black uppercase tracking-widest text-rose-600 hover:text-rose-700 transition-colors flex items-center gap-1 bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-100"
+                                        >
+                                          <XCircle size={12} />
+                                          {sessionActionLoadingId === booking.id ? '...' : 'Mark Not Completed'}
+                                        </button>
+                                      </div>
                                     )}
                                   </td>
                                 </motion.tr>

@@ -188,6 +188,19 @@ public class NotificationService {
         createNotification(recipient, NotificationType.SESSION_CANCELLED, message, session.getId());
     }
 
+    @Transactional
+    public void notifySessionNotCompleted(SessionBookingEntity session) {
+        UserEntity client = session.getClient();
+        UserEntity provider = session.getProvider();
+
+        String message = String.format(
+                "⚠️ Session on %s at %s was marked as not completed. A refund has been initiated.",
+                session.getSessionDate(), session.getStartTime());
+
+        createNotification(client, NotificationType.SESSION_NOT_COMPLETED, message, session.getId());
+        createNotification(provider, NotificationType.SESSION_NOT_COMPLETED, message, session.getId());
+    }
+
     private void createNotification(UserEntity recipient, NotificationType type, String message, Long relatedId) {
         NotificationEntity entity = new NotificationEntity();
         entity.setRecipient(recipient);

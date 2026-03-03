@@ -318,6 +318,69 @@ public class EmailService {
                 sendEmail(message);
         }
 
+        public void sendSessionNotCompletedEmail(com.wellness.backend.model.SessionBookingEntity session) {
+                String clientEmailTo = session.getClient().getEmail();
+                String providerEmailTo = session.getProvider().getEmail();
+                String dateTime = session.getSessionDate() + " at " + session.getStartTime();
+
+                String commonText = "Hello,\n\n"
+                                + "The session scheduled for " + dateTime + " has been marked as NOT COMPLETED.\n"
+                                + "As a result, a refund has been initiated for this session.\n\n"
+                                + "Session Details:\n"
+                                + "Date & Time: " + dateTime + "\n"
+                                + "Client: " + session.getClient().getName() + "\n"
+                                + "Practitioner: " + session.getProvider().getName() + "\n\n"
+                                + "If you have any questions, please contact support.\n\n"
+                                + "Best regards,\nWellness Hub";
+
+                // Email to Client
+                SimpleMailMessage clientMsg = new SimpleMailMessage();
+                clientMsg.setFrom(fromEmail);
+                clientMsg.setTo(clientEmailTo);
+                clientMsg.setSubject("⚠️ Wellness Hub – Session Not Completed & Refund Initiated");
+                clientMsg.setText("Dear " + session.getClient().getName() + ",\n\n" + commonText);
+                sendEmail(clientMsg);
+
+                // Email to Provider
+                SimpleMailMessage providerMsg = new SimpleMailMessage();
+                providerMsg.setFrom(fromEmail);
+                providerMsg.setTo(providerEmailTo);
+                providerMsg.setSubject("⚠️ Wellness Hub – Session Not Completed Notification");
+                providerMsg.setText("Dear " + session.getProvider().getName() + ",\n\n" + commonText);
+                sendEmail(providerMsg);
+        }
+
+        public void sendSessionCompletedEmail(com.wellness.backend.model.SessionBookingEntity session) {
+                String clientEmailTo = session.getClient().getEmail();
+                String providerEmailTo = session.getProvider().getEmail();
+                String dateTime = session.getSessionDate() + " at " + session.getStartTime();
+
+                String commonText = "Hello,\n\n"
+                                + "The session scheduled for " + dateTime + " has been marked as COMPLETED.\n\n"
+                                + "Session Details:\n"
+                                + "Date & Time: " + dateTime + "\n"
+                                + "Client: " + session.getClient().getName() + "\n"
+                                + "Practitioner: " + session.getProvider().getName() + "\n\n"
+                                + "We hope you had a productive session. Thank you for using Wellness Hub!\n\n"
+                                + "Best regards,\nWellness Hub";
+
+                // Email to Client
+                SimpleMailMessage clientMsg = new SimpleMailMessage();
+                clientMsg.setFrom(fromEmail);
+                clientMsg.setTo(clientEmailTo);
+                clientMsg.setSubject("✅ Wellness Hub – Session Completed Confirmation");
+                clientMsg.setText("Dear " + session.getClient().getName() + ",\n\n" + commonText);
+                sendEmail(clientMsg);
+
+                // Email to Provider
+                SimpleMailMessage providerMsg = new SimpleMailMessage();
+                providerMsg.setFrom(fromEmail);
+                providerMsg.setTo(providerEmailTo);
+                providerMsg.setSubject("✅ Wellness Hub – Session Completed Confirmation");
+                providerMsg.setText("Dear " + session.getProvider().getName() + ",\n\n" + commonText);
+                sendEmail(providerMsg);
+        }
+
         private void sendEmail(SimpleMailMessage message) {
                 String recipient = (message.getTo() != null && message.getTo().length > 0) ? message.getTo()[0]
                                 : "unknown";

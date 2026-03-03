@@ -18,6 +18,7 @@ public class BookingResponseDTO {
     private String practitionerComment;
     private String status;
     private java.math.BigDecimal sessionFee;
+    private boolean refunded;
 
     private UserDTO practitioner;
 }

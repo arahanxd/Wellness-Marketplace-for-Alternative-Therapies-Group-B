@@ -9,6 +9,7 @@ import com.wellness.backend.exception.ResourceNotFoundException;
 import com.wellness.backend.model.SessionBookingEntity;
 import com.wellness.backend.model.SessionStatus;
 import com.wellness.backend.model.UserEntity;
+import com.wellness.backend.repository.ProviderAvailabilityRepository;
 import com.wellness.backend.repository.SessionBookingRepository;
 import com.wellness.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,7 @@ public class SessionBookingService {
     private final UserRepository userRepository;
     private final EmailService emailService;
     private final NotificationService notificationService;
+    private final ProviderAvailabilityRepository providerAvailabilityRepository;
 
     @Transactional
     public SessionBookingResponseDTO bookSession(String clientEmail, SessionBookingRequestDTO request) {
@@ -69,14 +71,28 @@ public class SessionBookingService {
 
     @Transactional(readOnly = true)
     public List<SessionBookingResponseDTO> getSessionsForProvider(Long providerId) {
-        return sessionBookingRepository.findByProvider_Id(providerId).stream()
+        LocalDateTime now = LocalDateTime.now();
+        List<SessionStatus> excluded = List.of(SessionStatus.COMPLETED, SessionStatus.NOT_COMPLETED);
+
+        return sessionBookingRepository.findUpcomingSessionsForProvider(
+                providerId,
+                now.toLocalDate(),
+                now.toLocalTime(),
+                excluded).stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<SessionBookingResponseDTO> getSessionsForClient(Long clientId) {
-        return sessionBookingRepository.findByClient_Id(clientId).stream()
+        LocalDateTime now = LocalDateTime.now();
+        List<SessionStatus> excluded = List.of(SessionStatus.COMPLETED, SessionStatus.NOT_COMPLETED);
+
+        return sessionBookingRepository.findUpcomingSessionsForClient(
+                clientId,
+                now.toLocalDate(),
+                now.toLocalTime(),
+                excluded).stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());
     }
@@ -219,6 +235,80 @@ public class SessionBookingService {
         }
     }
 
+    @Transactional
+    public SessionBookingResponseDTO completeSession(Long sessionId, String providerEmail) {
+        SessionBookingEntity session = loadAndValidateProviderOwnership(sessionId, providerEmail);
+
+        if (session.getStatus() == SessionStatus.COMPLETED || session.getStatus() == SessionStatus.NOT_COMPLETED) {
+            throw new IllegalStateException("Session is already in a terminal state: " + session.getStatus());
+        }
+
+        session.setStatus(SessionStatus.COMPLETED);
+        SessionBookingEntity saved = sessionBookingRepository.save(session);
+
+        // Send confirmation email to both parties
+        try {
+            emailService.sendSessionCompletedEmail(saved);
+        } catch (Exception e) {
+            log.error("Failed to send session completed emails for session {}: {}", sessionId, e.getMessage());
+        }
+
+        // Trigger calendar consistency
+        updateDateConsistency(saved.getSessionDate(), saved.getProvider().getId());
+
+        return toDto(saved);
+    }
+
+    @Transactional
+    public SessionBookingResponseDTO markSessionNotCompleted(Long sessionId, String providerEmail) {
+        SessionBookingEntity session = loadAndValidateProviderOwnership(sessionId, providerEmail);
+
+        if (session.getStatus() == SessionStatus.COMPLETED || session.getStatus() == SessionStatus.NOT_COMPLETED) {
+            throw new IllegalStateException("Session is already in a terminal state: " + session.getStatus());
+        }
+
+        session.setStatus(SessionStatus.NOT_COMPLETED);
+        session.setRefunded(true);
+        SessionBookingEntity saved = sessionBookingRepository.save(session);
+
+        // Notify both parties (already sends to both in EmailService)
+        notificationService.notifySessionNotCompleted(saved);
+        try {
+            emailService.sendSessionNotCompletedEmail(saved);
+        } catch (Exception e) {
+            log.error("Failed to send session not completed emails for session {}: {}", sessionId, e.getMessage());
+        }
+
+        // Trigger calendar consistency
+        updateDateConsistency(saved.getSessionDate(), saved.getProvider().getId());
+
+        return toDto(saved);
+    }
+
+    private void updateDateConsistency(LocalDate date, Long practitionerId) {
+        List<SessionBookingEntity> sessions = sessionBookingRepository.findByProvider_IdAndSessionDate(practitionerId,
+                date);
+        if (sessions.isEmpty())
+            return;
+
+        boolean anyNotCompleted = sessions.stream().anyMatch(s -> s.getStatus() == SessionStatus.NOT_COMPLETED);
+        boolean allCompleted = sessions.stream().allMatch(s -> s.getStatus() == SessionStatus.COMPLETED);
+
+        String status = null;
+        if (anyNotCompleted) {
+            status = "YELLOW";
+        } else if (allCompleted) {
+            status = "GREEN";
+        }
+
+        List<com.wellness.backend.model.ProviderAvailabilityEntity> slots = providerAvailabilityRepository
+                .findByProviderIdAndAvailableDate(practitionerId, date);
+        for (com.wellness.backend.model.ProviderAvailabilityEntity slot : slots) {
+            slot.setDateStatus(status);
+            providerAvailabilityRepository.save(slot);
+        }
+    }
+
     private boolean isOwner(UserEntity user, SessionBookingEntity session) {
         Long uid = user.getId();
         return session.getClient().getId().equals(uid) || session.getProvider().getId().equals(uid);
@@ -276,6 +366,14 @@ public class SessionBookingService {
             providerProfileImg = "http://localhost:8080/uploads/" + providerProfileImg;
         }
 
+        // Fetch date status from availability slots (if any)
+        String dateStatus = null;
+        List<com.wellness.backend.model.ProviderAvailabilityEntity> slots = providerAvailabilityRepository
+                .findByProviderIdAndAvailableDate(entity.getProvider().getId(), entity.getSessionDate());
+        if (!slots.isEmpty()) {
+            dateStatus = slots.get(0).getDateStatus();
+        }
+
         return SessionBookingResponseDTO.builder()
                 .id(entity.getId())
                 .clientId(entity.getClient().getId())
@@ -292,7 +390,9 @@ public class SessionBookingService {
                 .issueDescription(entity.getIssueDescription())
                 .status(entity.getStatus())
                 .providerMessage(entity.getProviderMessage())
+                .dateStatusColor(dateStatus)
                 .reminderSent(entity.isReminderSent())
+                .refunded(entity.isRefunded())
                 .sessionFee(entity.getProvider().getSessionFee())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())

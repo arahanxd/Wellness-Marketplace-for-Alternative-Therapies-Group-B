@@ -36,4 +36,7 @@ public class ProviderAvailabilityEntity {
 
     @Column(name = "is_blocked", columnDefinition = "BOOLEAN DEFAULT FALSE")
     private boolean isBlocked = false;
+
+    @Column(name = "date_status")
+    private String dateStatus; // GREEN, YELLOW
 }

@@ -60,6 +60,9 @@ public class SessionBookingEntity {
     @Column(name = "reminder_sent", nullable = false)
     private boolean reminderSent = false;
 
+    @Column(name = "refunded", nullable = false)
+    private boolean refunded = false;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -68,4 +71,3 @@ public class SessionBookingEntity {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 }
-

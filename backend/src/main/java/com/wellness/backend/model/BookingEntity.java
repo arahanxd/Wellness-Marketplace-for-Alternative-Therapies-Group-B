@@ -50,6 +50,9 @@ public class BookingEntity {
     @Column(name = "reminder_sent", nullable = false)
     private boolean reminderSent = false;
 
+    @Column(name = "refunded", nullable = false)
+    private boolean refunded = false;
+
     @Column(name = "session_fee", precision = 19, scale = 2)
     private java.math.BigDecimal sessionFee;
 
