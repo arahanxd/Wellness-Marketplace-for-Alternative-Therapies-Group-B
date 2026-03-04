@@ -80,6 +80,11 @@ public class BookingController {
         return ResponseEntity.ok(bookingService.cancelBooking(id, principal.getName()));
     }
 
+    @PutMapping("/{id}/not-complete")
+    public ResponseEntity<BookingResponseDTO> markBookingNotCompleted(@PathVariable Long id) {
+        return ResponseEntity.ok(bookingService.markBookingNotCompleted(id));
+    }
+
     @PutMapping("/{id}/accept-reschedule")
     public ResponseEntity<BookingResponseDTO> acceptReschedule(@PathVariable Long id) {
         return ResponseEntity.ok(bookingService.acceptReschedule(id));

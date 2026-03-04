@@ -202,6 +202,23 @@ public class NotificationService {
     }
 
     @Transactional
+    public void notifyBookingNotCompleted(BookingEntity booking) {
+        UserEntity client = booking.getUser();
+        UserEntity practitioner = booking.getPractitioner();
+        String dateTime = booking.getBookingDate() != null
+                ? booking.getBookingDate().toLocalDate() + " at "
+                        + booking.getBookingDate().toLocalTime().toString().substring(0, 5)
+                : "scheduled time";
+
+        String message = String.format(
+                "⚠️ Session on %s was marked as not completed. A refund has been initiated.",
+                dateTime);
+
+        createNotification(client, NotificationType.SESSION_NOT_COMPLETED, message, booking.getId());
+        createNotification(practitioner, NotificationType.SESSION_NOT_COMPLETED, message, booking.getId());
+    }
+
+    @Transactional
     public void notifySessionCompleted(SessionBookingEntity session) {
         UserEntity client = session.getClient();
         UserEntity provider = session.getProvider();
@@ -212,6 +229,23 @@ public class NotificationService {
 
         createNotification(client, NotificationType.SESSION_COMPLETED, message, session.getId());
         createNotification(provider, NotificationType.SESSION_COMPLETED, message, session.getId());
+    }
+
+    @Transactional
+    public void notifyBookingCompleted(BookingEntity booking) {
+        UserEntity client = booking.getUser();
+        UserEntity practitioner = booking.getPractitioner();
+        String dateTime = booking.getBookingDate() != null
+                ? booking.getBookingDate().toLocalDate() + " at "
+                        + booking.getBookingDate().toLocalTime().toString().substring(0, 5)
+                : "scheduled time";
+
+        String message = String.format(
+                "✅ Your session on %s has been marked as COMPLETED. We hope it was productive!",
+                dateTime);
+
+        createNotification(client, NotificationType.SESSION_COMPLETED, message, booking.getId());
+        createNotification(practitioner, NotificationType.SESSION_COMPLETED, message, booking.getId());
     }
 
     private void createNotification(UserEntity recipient, NotificationType type, String message, Long relatedId) {

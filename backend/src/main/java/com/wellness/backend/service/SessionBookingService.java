@@ -30,10 +30,11 @@ import java.util.stream.Collectors;
 public class SessionBookingService {
 
     private final SessionBookingRepository sessionBookingRepository;
-    private final UserRepository userRepository;
-    private final EmailService emailService;
-    private final NotificationService notificationService;
     private final ProviderAvailabilityRepository providerAvailabilityRepository;
+    private final NotificationService notificationService;
+    private final EmailService emailService;
+    private final UserRepository userRepository;
+    private final ReminderService reminderService;
 
     @Transactional
     public SessionBookingResponseDTO bookSession(String clientEmail, SessionBookingRequestDTO request) {
@@ -66,6 +67,8 @@ public class SessionBookingService {
         System.out.println("Saving session booking with status: " + entity.getStatus());
 
         SessionBookingEntity saved = sessionBookingRepository.save(entity);
+        // Schedule persistent reminders (SendGrid)
+        reminderService.scheduleSessionReminders(saved);
         return toDto(saved);
     }
 
@@ -106,6 +109,7 @@ public class SessionBookingService {
         }
         SessionBookingEntity saved = sessionBookingRepository.save(session);
         notificationService.notifySessionConfirmedForClient(saved);
+        reminderService.scheduleSessionReminders(saved); // Re-schedule reminders in case of status change
         return toDto(saved);
     }
 
@@ -130,6 +134,7 @@ public class SessionBookingService {
 
         SessionBookingEntity saved = sessionBookingRepository.save(session);
         notificationService.notifySessionRescheduleSuggested(saved);
+        reminderService.scheduleSessionReminders(saved); // Re-schedule reminders for new time
         return toDto(saved);
     }
 
@@ -143,6 +148,7 @@ public class SessionBookingService {
         session.setReminderSent(false);
         SessionBookingEntity saved = sessionBookingRepository.save(session);
         notificationService.notifySessionRejectedForClient(saved);
+        reminderService.cancelSessionReminders(saved.getId()); // Cancel reminders for rejected session
         return toDto(saved);
     }
 
@@ -191,7 +197,7 @@ public class SessionBookingService {
 
         SessionBookingEntity saved = sessionBookingRepository.save(session);
         notificationService.notifySessionConfirmedForClient(saved);
-        scheduleSessionReminders(saved);
+        reminderService.scheduleSessionReminders(saved);
         return toDto(saved);
     }
 
@@ -217,20 +223,18 @@ public class SessionBookingService {
         List<SessionBookingEntity> candidates = sessionBookingRepository
                 .findByStatusInAndReminderSentFalse(List.of(SessionStatus.CONFIRMED, SessionStatus.ACCEPTED));
 
-        log.info("🔍 Checking {} sessions for reminders...", candidates.size());
+        log.info("🔍 Checking {} sessions for in-app reminders...", candidates.size());
 
         for (SessionBookingEntity session : candidates) {
-            if (isWithinExact30MinuteWindow(session, now)) {
+            if (isReminderDue(session, now)) {
                 try {
-                    log.info("📩 Sending reminder for session ID: {} (Session starts at: {} {})", session.getId(),
-                            session.getSessionDate(), session.getStartTime());
-                    sendReminderEmails(session);
+                    log.info("📩 Sending in-app reminder for session ID: {}", session.getId());
+                    // Email is now handled by persistent SendGrid scheduler
                     notificationService.notifySessionReminder(session);
                     session.setReminderSent(true);
                     sessionBookingRepository.save(session);
-                    log.info("✅ Reminder sent and marked for session ID: {}", session.getId());
                 } catch (Exception e) {
-                    log.error("❌ Failed to send reminder for session {}: {}", session.getId(), e.getMessage());
+                    log.error("❌ Failed to send in-app reminder for session {}: {}", session.getId(), e.getMessage());
                 }
             }
         }
@@ -330,35 +334,12 @@ public class SessionBookingService {
         return (start.isAfter(thirtyMinutesFromNow.minusSeconds(1)) && start.isBefore(thirtyFiveMinutesFromNow));
     }
 
-    private boolean isWithinExact30MinuteWindow(SessionBookingEntity session, LocalDateTime now) {
+    private boolean isReminderDue(SessionBookingEntity session, LocalDateTime now) {
         LocalDateTime start = LocalDateTime.of(session.getSessionDate(), session.getStartTime());
-        long minutesDiff = ChronoUnit.MINUTES.between(now, start);
-        // Window: 29-31 minutes
-        return minutesDiff >= 29 && minutesDiff <= 31;
-    }
 
-    private void sendReminderEmails(SessionBookingEntity session) {
-        emailService.sendSessionReminderToClient(session);
-        emailService.sendSessionReminderToProvider(session);
-    }
-
-    private void scheduleSessionReminders(SessionBookingEntity session) {
-        LocalDateTime sessionStart = LocalDateTime.of(session.getSessionDate(), session.getStartTime());
-        LocalDateTime reminderTime = sessionStart.minusMinutes(30);
-        long epochSeconds = reminderTime.toEpochSecond(java.time.ZoneOffset.UTC);
-
-        String clientSubject = "Session Reminder – Starts in 30 Minutes";
-        String clientBody = String.format(
-                "Dear %s,\n\nThis is a reminder that your session with Dr. %s starts in 30 minutes.",
-                session.getClient().getName(), session.getProvider().getName());
-
-        String providerSubject = "Upcoming Session in 30 Minutes";
-        String providerBody = String.format("Dear %s,\n\nYou have an upcoming session with %s starting in 30 minutes.",
-                session.getProvider().getName(), session.getClient().getName());
-
-        emailService.sendScheduledReminder(session.getClient().getEmail(), clientSubject, clientBody, epochSeconds);
-        emailService.sendScheduledReminder(session.getProvider().getEmail(), providerSubject, providerBody,
-                epochSeconds);
+        // Due if session starts within the next 30 minutes (even if it already started,
+        // up to 5 mins ago to handle minor lag)
+        return start.isAfter(now.minusMinutes(5)) && start.isBefore(now.plusMinutes(30));
     }
 
     private SessionBookingEntity loadAndValidateProviderOwnership(Long sessionId, String providerEmail) {

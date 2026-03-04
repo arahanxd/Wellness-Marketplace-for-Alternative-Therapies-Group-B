@@ -129,7 +129,7 @@ export interface SessionBooking {
 
 export interface Notification {
   id: number
-  type: 'BOOKING_REQUEST' | 'SESSION_CONFIRMED' | 'SESSION_REJECTED' | 'SESSION_RESCHEDULE_SUGGESTED' | 'SESSION_REMINDER'
+  type: 'BOOKING_REQUEST' | 'SESSION_CONFIRMED' | 'SESSION_REJECTED' | 'SESSION_RESCHEDULE_SUGGESTED' | 'SESSION_REMINDER' | 'SESSION_CANCELLED' | 'SESSION_COMPLETED' | 'SESSION_NOT_COMPLETED'
   message: string
   read: boolean
   relatedBookingId?: number
@@ -278,6 +278,11 @@ export const api = {
 
   async rejectBooking(id: number): Promise<Booking> {
     const response = await apiClient.put(`/bookings/${id}/reject`)
+    return response.data
+  },
+
+  async notCompleteBooking(id: number): Promise<Booking> {
+    const response = await apiClient.put(`/bookings/${id}/not-complete`)
     return response.data
   },
 

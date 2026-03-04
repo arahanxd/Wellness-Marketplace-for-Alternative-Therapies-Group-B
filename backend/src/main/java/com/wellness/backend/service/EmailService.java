@@ -375,6 +375,51 @@ public class EmailService {
                                 "Dear " + session.getProvider().getName() + ",\n\n" + commonText);
         }
 
+        public void sendBookingNotCompletedEmail(com.wellness.backend.model.BookingEntity booking) {
+                String dateTime = booking.getBookingDate().toString().replace("T", " at ");
+                String commonText = "Hello,\n\n"
+                                + "The session scheduled for " + dateTime + " has been marked as NOT COMPLETED.\n"
+                                + "As a result, a refund has been initiated for this session.\n\n"
+                                + "Session Details:\n"
+                                + "Date & Time: " + dateTime + "\n"
+                                + "Client: " + booking.getUser().getName() + "\n"
+                                + "Practitioner: " + booking.getPractitioner().getName() + "\n\n"
+                                + "If you have any questions, please contact support.\n\n"
+                                + "Best regards,\nWellness Hub";
+
+                // Email to Client
+                sendImmediateSendGridEmail(booking.getUser().getEmail(),
+                                "⚠️ Wellness Hub – Session Not Completed & Refund Initiated",
+                                "Dear " + booking.getUser().getName() + ",\n\n" + commonText);
+
+                // Email to Practitioner
+                sendImmediateSendGridEmail(booking.getPractitioner().getEmail(),
+                                "⚠️ Wellness Hub – Session Not Completed Notification",
+                                "Dear " + booking.getPractitioner().getName() + ",\n\n" + commonText);
+        }
+
+        public void sendBookingCompletedEmail(com.wellness.backend.model.BookingEntity booking) {
+                String dateTime = booking.getBookingDate().toString().replace("T", " at ");
+                String commonText = "Hello,\n\n"
+                                + "The session scheduled for " + dateTime + " has been marked as COMPLETED.\n\n"
+                                + "Session Details:\n"
+                                + "Date & Time: " + dateTime + "\n"
+                                + "Client: " + booking.getUser().getName() + "\n"
+                                + "Practitioner: " + booking.getPractitioner().getName() + "\n\n"
+                                + "We hope you had a productive session. Thank you for using Wellness Hub!\n\n"
+                                + "Best regards,\nWellness Hub";
+
+                // Email to Client
+                sendImmediateSendGridEmail(booking.getUser().getEmail(),
+                                "✅ Wellness Hub – Session Completed Confirmation",
+                                "Dear " + booking.getUser().getName() + ",\n\n" + commonText);
+
+                // Email to Practitioner
+                sendImmediateSendGridEmail(booking.getPractitioner().getEmail(),
+                                "✅ Wellness Hub – Session Completed Confirmation",
+                                "Dear " + booking.getPractitioner().getName() + ",\n\n" + commonText);
+        }
+
         public String sendScheduledReminder(String to, String subject, String body, long sendAt) {
                 Email from = new Email(fromEmail);
                 Email recipient = new Email(to);

@@ -9,7 +9,7 @@ import { api, type Profile, type Booking, type PatientAnalytics, type Notificati
 import {
   Calendar, LayoutDashboard, ShoppingBag, MessageSquare, Sparkles, Clock,
   Compass, Activity, User, Mail, MapPin, Globe, Shield, Save, CheckCircle2,
-  XCircle, RefreshCw, Star, ArrowRight, ClipboardList, TrendingUp
+  XCircle, RefreshCw, Star, ArrowRight, ClipboardList, TrendingUp, Bell, AlertCircle
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Link } from 'react-router-dom'
@@ -52,12 +52,14 @@ function PractitionerStatusBadge({ status }: { status?: string }) {
   )
 }
 
-const getBookingStatus = (booking: Booking): 'Pending' | 'Ongoing' | 'Completed' | 'Upcoming' => {
+const getBookingStatus = (booking: Booking): 'Pending' | 'Ongoing' | 'Completed' | 'Upcoming' | 'Not Completed' => {
   if (booking.status === 'COMPLETED') return 'Completed'
+  if (booking.status === 'NOT_COMPLETED') return 'Not Completed'
   if (!booking.bookingDate || !booking.startTime) return 'Pending'
 
   const now = new Date()
-  const start = new Date(booking.bookingDate)
+  const dateStr = booking.bookingDate.split('T')[0]
+  const start = new Date(`${dateStr}T${booking.startTime}`)
   const dur = booking.duration || 30
   const end = new Date(start.getTime() + dur * 60 * 1000)
 
@@ -66,12 +68,15 @@ const getBookingStatus = (booking: Booking): 'Pending' | 'Ongoing' | 'Completed'
   return 'Completed'
 }
 
-const getBookingStatusClasses = (status: 'Pending' | 'Ongoing' | 'Completed' | 'Upcoming') => {
+const getBookingStatusClasses = (status: 'Pending' | 'Ongoing' | 'Completed' | 'Upcoming' | 'Not Completed') => {
   if (status === 'Pending' || status === 'Upcoming') {
     return 'border-amber-200 text-amber-700 bg-amber-50'
   }
   if (status === 'Ongoing') {
     return 'border-sky-200 text-sky-700 bg-sky-50'
+  }
+  if (status === 'Not Completed') {
+    return 'border-rose-200 text-rose-700 bg-rose-50'
   }
   // Completed
   return 'border-emerald-200 text-emerald-700 bg-emerald-50'
@@ -261,12 +266,17 @@ export function UserDashboard() {
                             className={`p-5 border-b border-slate-50 cursor-pointer hover:bg-slate-50 transition-colors ${!n.read ? 'bg-brand-50/30' : ''}`}
                           >
                             <div className="flex gap-3">
-                              <div className={`h-8 w-8 rounded-xl flex items-center justify-center flex-shrink-0 ${n.type === 'BOOKING_REQUEST' ? 'bg-amber-100 text-amber-600' :
-                                n.type === 'SESSION_CONFIRMED' ? 'bg-emerald-100 text-emerald-600' :
-                                  n.type === 'SESSION_REJECTED' ? 'bg-rose-100 text-rose-600' :
-                                    'bg-brand-100 text-brand-600'
+                              <div className={`h-8 w-8 rounded-xl flex items-center justify-center flex-shrink-0 ${n.type === 'BOOKING_REQUEST' || n.type === 'SESSION_RESCHEDULE_SUGGESTED' ? 'bg-amber-100 text-amber-600' :
+                                n.type === 'SESSION_CONFIRMED' || n.type === 'SESSION_COMPLETED' ? 'bg-emerald-100 text-emerald-600' :
+                                  n.type === 'SESSION_REJECTED' || n.type === 'SESSION_CANCELLED' || n.type === 'SESSION_NOT_COMPLETED' ? 'bg-rose-100 text-rose-600' :
+                                    n.type === 'SESSION_REMINDER' ? 'bg-brand-100 text-brand-600' :
+                                      'bg-slate-100 text-slate-600'
                                 }`}>
-                                {n.type === 'BOOKING_REQUEST' ? <Calendar size={14} /> : <Activity size={14} />}
+                                {n.type === 'BOOKING_REQUEST' ? <Calendar size={14} /> :
+                                  n.type === 'SESSION_REMINDER' ? <Bell size={14} /> :
+                                    n.type === 'SESSION_CONFIRMED' || n.type === 'SESSION_COMPLETED' ? <CheckCircle2 size={14} /> :
+                                      n.type === 'SESSION_REJECTED' || n.type === 'SESSION_CANCELLED' || n.type === 'SESSION_NOT_COMPLETED' ? <AlertCircle size={14} /> :
+                                        <Activity size={14} />}
                               </div>
                               <div className="flex-1">
                                 <p className="text-xs font-bold text-slate-900 leading-relaxed mb-1">{n.message}</p>
@@ -321,8 +331,8 @@ export function UserDashboard() {
                   </div>
                   {bookings.length > 0 ? (
                     (() => {
-                      const completedBookings = bookings.filter(b => b.status === 'COMPLETED' || getBookingStatus(b) === 'Completed');
-                      const upcomingBookings = bookings.filter(b => b.status !== 'COMPLETED' && (getBookingStatus(b) === 'Upcoming' || getBookingStatus(b) === 'Ongoing'));
+                      const completedBookings = bookings.filter(b => b.status === 'COMPLETED' || b.status === 'NOT_COMPLETED' || getBookingStatus(b) === 'Completed' || getBookingStatus(b) === 'Not Completed');
+                      const upcomingBookings = bookings.filter(b => !['COMPLETED', 'NOT_COMPLETED', 'REJECTED', 'CANCELLED'].includes(b.status) && (getBookingStatus(b) === 'Upcoming' || getBookingStatus(b) === 'Ongoing'));
                       const latestCompleted = completedBookings.sort((a, b) => new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime())[0];
                       const nextUpcoming = upcomingBookings.sort((a, b) => new Date(a.bookingDate).getTime() - new Date(b.bookingDate).getTime())[0];
 
@@ -615,9 +625,15 @@ export function UserDashboard() {
                   </Link>
                 </div>
                 <div className="space-y-4">
-                  {bookings.filter(b => !['COMPLETED', 'REJECTED', 'CANCELLED'].includes(b.status)).length > 0 ? (
+                  {bookings.filter(b => {
+                    const status = getBookingStatus(b)
+                    return !['COMPLETED', 'NOT_COMPLETED', 'REJECTED', 'CANCELLED'].includes(b.status) && (status === 'Upcoming' || status === 'Ongoing' || status === 'Pending')
+                  }).length > 0 ? (
                     bookings
-                      .filter(b => !['COMPLETED', 'REJECTED', 'CANCELLED'].includes(b.status))
+                      .filter(b => {
+                        const status = getBookingStatus(b)
+                        return !['COMPLETED', 'NOT_COMPLETED', 'REJECTED', 'CANCELLED'].includes(b.status) && (status === 'Upcoming' || status === 'Ongoing' || status === 'Pending')
+                      })
                       .slice()
                       .sort((a, b) => new Date(a.bookingDate).getTime() - new Date(b.bookingDate).getTime())
                       .map((booking, idx) => {
@@ -728,9 +744,9 @@ export function UserDashboard() {
                   </h2>
                 </div>
                 <div className="space-y-4">
-                  {bookings.filter(b => b.status === 'COMPLETED' || getBookingStatus(b) === 'Completed').length > 0 ? (
+                  {bookings.filter(b => b.status === 'COMPLETED' || b.status === 'NOT_COMPLETED' || getBookingStatus(b) === 'Completed' || getBookingStatus(b) === 'Not Completed').length > 0 ? (
                     bookings
-                      .filter(b => b.status === 'COMPLETED' || getBookingStatus(b) === 'Completed')
+                      .filter(b => b.status === 'COMPLETED' || b.status === 'NOT_COMPLETED' || getBookingStatus(b) === 'Completed' || getBookingStatus(b) === 'Not Completed')
                       .slice()
                       .sort((a, b) => new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime())
                       .map((booking, idx) => (
@@ -760,8 +776,8 @@ export function UserDashboard() {
                             </div>
                           </div>
                           <div className="flex flex-col items-end gap-2">
-                            <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase border shadow-sm ${getBookingStatusClasses('Completed')}`}>
-                              COMPLETED
+                            <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase border shadow-sm ${getBookingStatusClasses(getBookingStatus(booking))}`}>
+                              {booking.status === 'COMPLETED' || booking.status === 'NOT_COMPLETED' ? booking.status.replace('_', ' ') : getBookingStatus(booking)}
                             </span>
                             {booking.sessionFee != null && Number(booking.sessionFee) > 0 && (
                               <span className="text-xs font-black text-slate-500">

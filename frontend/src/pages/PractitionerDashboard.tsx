@@ -284,7 +284,7 @@ export function PractitionerDashboard() {
     try {
       const updated = booking.isSmartSession
         ? await api.notCompleteSession(booking.id)
-        : await api.rejectBooking(booking.id); // fallback or different logic for standard bookings
+        : await api.notCompleteBooking(booking.id);
 
       const normalized = booking.isSmartSession
         ? { ...updated, bookingDate: (updated as any).sessionDate, isSmartSession: true }
@@ -483,13 +483,27 @@ export function PractitionerDashboard() {
                             key={n.id}
                             type="button"
                             onClick={() => handleNotificationClick(n)}
-                            className={`w-full text-left px-4 py-3 text-xs border-b border-slate-50 last:border-b-0 ${n.read ? 'bg-white text-slate-500' : 'bg-slate-50 text-slate-800'
-                              } hover:bg-slate-100 transition-colors`}
+                            className={`w-full text-left px-4 py-4 text-xs border-b border-slate-50 last:border-b-0 transition-colors ${n.read ? 'bg-white' : 'bg-slate-50/50'
+                              } hover:bg-slate-100 flex gap-3 items-start`}
                           >
-                            <p className="font-bold leading-snug">{n.message}</p>
-                            <p className="text-[10px] text-slate-400 mt-1">
-                              {new Date(n.createdAt).toLocaleString()}
-                            </p>
+                            <div className={`mt-0.5 h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0 ${n.type === 'BOOKING_REQUEST' || n.type === 'SESSION_RESCHEDULE_SUGGESTED' ? 'bg-amber-100 text-amber-600' :
+                              n.type === 'SESSION_CONFIRMED' || n.type === 'SESSION_COMPLETED' ? 'bg-emerald-100 text-emerald-600' :
+                                n.type === 'SESSION_REJECTED' || n.type === 'SESSION_CANCELLED' || n.type === 'SESSION_NOT_COMPLETED' ? 'bg-rose-100 text-rose-600' :
+                                  n.type === 'SESSION_REMINDER' ? 'bg-brand-100 text-brand-600' :
+                                    'bg-slate-100 text-slate-600'
+                              }`}>
+                              {n.type === 'BOOKING_REQUEST' ? <Calendar size={12} /> :
+                                n.type === 'SESSION_REMINDER' ? <Bell size={12} /> :
+                                  n.type === 'SESSION_CONFIRMED' || n.type === 'SESSION_COMPLETED' ? <CheckCircle2 size={12} /> :
+                                    n.type === 'SESSION_REJECTED' || n.type === 'SESSION_CANCELLED' || n.type === 'SESSION_NOT_COMPLETED' ? <AlertCircle size={12} /> :
+                                      <Activity size={12} />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className={`font-bold leading-snug truncate-2-lines ${n.read ? 'text-slate-600' : 'text-slate-900'}`}>{n.message}</p>
+                              <p className="text-[10px] text-slate-400 mt-1">
+                                {new Date(n.createdAt).toLocaleDateString()} {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                            </div>
                           </button>
                         ))
                       )}
@@ -841,7 +855,7 @@ export function PractitionerDashboard() {
                         </thead>
                         <tbody className="divide-y divide-slate-50">
                           {bookings
-                            .filter(b => b.status === 'COMPLETED' || getSessionStatus(b) === 'Completed')
+                            .filter(b => b.status === 'COMPLETED' || b.status === 'NOT_COMPLETED' || getSessionStatus(b) === 'Completed' || getSessionStatus(b) === 'Not Completed')
                             .slice()
                             .sort((a, b) => new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime())
                             .map((booking, idx) => {
