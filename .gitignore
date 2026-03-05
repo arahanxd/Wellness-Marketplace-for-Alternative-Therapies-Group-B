@@ -1,10 +1,89 @@
-# Backend build
-backend/target/
-
-# Frontend build
+# ================================
+# Node / Frontend
+# ================================
+node_modules/
+dist/
+build/
+.next/
+out/
 frontend/node_modules/
 frontend/dist/
+frontend/build/
+frontend/dist-ssr/
+*.local
 
-# General
-*.class
+# ================================
+# Logs
+# ================================
+logs/
 *.log
+npm-debug.log*
+yarn-debug.log*
+backend/*.log
+frontend/*.log
+backend/compile_output.txt
+
+# ================================
+# Environment Files
+# ================================
+.env
+*.env
+.env.local
+.env.development
+.env.production
+backend/.env
+frontend/.env
+frontend/.env.local
+
+# ================================
+# Java / Spring Boot
+# ================================
+target/
+backend/target/
+*.class
+*.jar
+*.war
+*.lst
+
+# ================================
+# IDE / Editor Files
+# ================================
+.vscode/
+.idea/
+*.iml
+*.iws
+.project
+.classpath
+.settings/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ================================
+# OS Files
+# ================================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ================================
+# Upload / Runtime Files
+# ================================
+uploads/
+backend/uploads/
+public/uploads/
+frontend/public/uploads/
+
+# ================================
+# Dependency Cache
+# ================================
+.cache/
+.tmp/
+
+# ================================
+# Project Specific
+# ================================
+wellness_marketplace.sql
+test-booking.js

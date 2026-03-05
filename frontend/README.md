@@ -1,73 +1,204 @@
-# React + TypeScript + Vite
+# Wellness Marketplace for Alternative Therapies
+**React • TypeScript • Spring Boot • MySQL • Java**
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Milestone 1 – Practitioner & User Profiles Module
 
-Currently, two official plugins are available:
+A full-stack web application that enables users to register as Clients or Practitioners, manage profiles, and implement a secure practitioner verification system.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+---
 
-## React Compiler
+## 👥 Team Members
+- Aditi – Backend Developer  
+- Arahan Jain – Frontend Developer and Tester  
+- Hemamalini – Backend Developer  
+- Poojitha – Backend Developer  
+- Thanga Kumar – Backend Developer and Tester  
+- Sudhan – Frontend Developer  
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the ESLint configuration
+## 📋 Table of Contents
+- Problem Statement  
+- Milestone 1 Features  
+- Tech Stack  
+- Prerequisites  
+- Installation  
+- Database Setup  
+- Running the Application  
+- Project Structure  
+- Security Features  
+- Backlog  
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+---
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## 🎯 Problem Statement (Module 1)
+In the alternative therapy ecosystem, users often struggle to:
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+- Identify verified practitioners  
+- Register securely with role-based access  
+- Manage professional profiles  
+- Maintain authentication and session security  
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+This module focuses on building the foundational authentication and profile management system required for a scalable wellness marketplace.
+
+---
+
+## 🚀 Milestone 1 (Week 1–2)
+### Implemented
+- Registration & Login with JWT Authentication  
+- Role-based access (CLIENT, PROVIDER, ADMIN)  
+- Practitioner profile creation  
+- Specialization tagging  
+- Practitioner document upload  
+- Admin verification workflow  
+- User dashboard with session history structure  
+
+---
+
+## 🛠️ Tech Stack
+### Frontend
+- React 18  
+- TypeScript  
+- Vite  
+- Tailwind CSS  
+
+### Backend
+- Spring Boot 3  
+- Spring Security  
+- JWT Authentication  
+- Spring Data JPA  
+- Lombok  
+
+### Database
+- MySQL 8  
+
+---
+
+## 📦 Prerequisites
+- Java 17+  
+- Node.js 18+  
+- npm  
+- MySQL 8+  
+- Maven  
+- Git  
+
+---
+
+## 🚀 Installation
+```bash
+git clone <https://github.com/arahanxd/Wellness-Marketplace-for-Alternative-Therapies.git>
+cd Wellness-Marketplace-for-Alternative-Therapies
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### 🗄️ Database Setup
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+Open MySQL and run : 
+```sql
+CREATE DATABASE wellness_marketplace;
 ```
+If a database dump is provided (wellness_marketplace.sql), import it using MySQL Workbench:
+Server → Data Import → Select File → Start Import
+
+### ⚠️ Important: Database Credentials
+
+The project uses : 
+```properties
+spring.datasource.username=***REMOVED***
+spring.datasource.password=***REMOVED***123
+```
+
+If your MySQL credentials are different, update : 
+```properties
+backend/src/main/resources/application.properties
+```
+
+Modify : 
+```properties
+spring.datasource.username=YOUR_MYSQL_USERNAME
+spring.datasource.password=YOUR_MYSQL_PASSWORD
+```
+Then restart the backend server.
+
+### ▶ Running the Application
+Start Backend
+
+```cmd
+cd backend
+mvn clean
+mvn spring-boot:run
+```
+Backend runs at : 
+http://localhost:8080
+
+Start Frontend
+
+```cmd
+cd frontend
+npm install
+npm run dev
+```
+Frontend runs at : 
+http://localhost:5173
+
+## Admin Details
+
+You will find admin credentials in backend/.env file
+
+## 📁 Project Structure
+
+```text
+.
+├── backend
+│   ├── src
+│   │   ├── main
+│   │   │   ├── java/com/wellness/backend
+│   │   │   │   ├── config
+│   │   │   │   ├── controller
+│   │   │   │   ├── dto
+│   │   │   │   ├── exception
+│   │   │   │   ├── model
+│   │   │   │   ├── repository
+│   │   │   │   └── service
+│   │   │   └── resources
+│   │   │       ├── application.properties
+│   │   │       ├── db
+│   │   │       │   └── migration
+│   │   │       └── session_booking_schema.sql
+│   └── pom.xml
+│
+├── frontend
+│   ├── src
+│   │   ├── api
+│   │   ├── assets
+│   │   ├── components
+│   │   ├── pages
+│   │   ├── utils
+│   │   ├── App.tsx
+│   │   └── main.tsx
+│   ├── index.html
+│   └── package.json
+│
+├── wellness_marketplace.sql
+└── README.md
+```
+
+## 🔒 Security Features
+
+- BCrypt password encryption
+- JWT-based stateless authentication
+- Role-based authorizatio
+- Secure practitioner verification workflow
+
+## 🏆 Milestone 1 Outcome
+
+- Functional Login/Register system
+- Profile setup page
+- Practitioner verification module
+- Role-based dashboards foundation
+
+## 📌 Upcoming Features (Pending)
+
+- Products tab where practitioners can list and sell their wellness products (e.g., medicines, therapy-related items)
+- Users will be able to browse and purchase these products
+- Product order history tracking for users
+- Sales and order management history for practitioners
