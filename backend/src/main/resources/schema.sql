@@ -17,26 +17,26 @@ CREATE TABLE IF NOT EXISTS users (
     verification_token VARCHAR(255),
     otp VARCHAR(255),
     otp_expiry TIMESTAMP,
-    admin_comment TEXT,
+    admin_comment VARCHAR(1000),
     profile_image VARCHAR(255),
-    session_fee DECIMAL(19, 2) DEFAULT 500.00
+    session_fee DECIMAL(19,2) DEFAULT 500.00
 );
 
--- Therapy Sessions table
+-- Therapy Sessions
 CREATE TABLE IF NOT EXISTS therapy_sessions (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
-    description TEXT,
+    description VARCHAR(2000),
     duration_minutes INT NOT NULL,
-    price DECIMAL(19, 2) NOT NULL,
+    price DECIMAL(19,2) NOT NULL,
     provider_id BIGINT NOT NULL,
     specialization VARCHAR(255),
     image_url VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (provider_id) REFERENCES users(id) ON DELETE CASCADE
+    FOREIGN KEY (provider_id) REFERENCES users(id)
 );
 
--- Provider Availability table
+-- Provider Availability
 CREATE TABLE IF NOT EXISTS provider_availability (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     provider_id BIGINT NOT NULL,
@@ -44,10 +44,10 @@ CREATE TABLE IF NOT EXISTS provider_availability (
     start_time TIME NOT NULL,
     end_time TIME NOT NULL,
     is_blocked BOOLEAN DEFAULT FALSE,
-    FOREIGN KEY (provider_id) REFERENCES users(id) ON DELETE CASCADE
+    FOREIGN KEY (provider_id) REFERENCES users(id)
 );
 
--- Bookings table
+-- Bookings
 CREATE TABLE IF NOT EXISTS bookings (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     booking_date TIMESTAMP NOT NULL,
@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS bookings (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     reminder_sent BOOLEAN DEFAULT FALSE,
     refunded BOOLEAN DEFAULT FALSE,
-    session_fee DECIMAL(19, 2),
+    session_fee DECIMAL(19,2),
     duration INT,
     practitioner_comment VARCHAR(500),
     reminder_scheduled BOOLEAN DEFAULT FALSE,
@@ -68,9 +68,9 @@ CREATE TABLE IF NOT EXISTS bookings (
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_booking_date ON bookings(booking_date);
+CREATE INDEX idx_booking_date ON bookings(booking_date);
 
--- Session Bookings table
+-- Session Bookings
 CREATE TABLE IF NOT EXISTS session_bookings (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     client_id BIGINT NOT NULL,
@@ -79,9 +79,9 @@ CREATE TABLE IF NOT EXISTS session_bookings (
     start_time TIME NOT NULL,
     end_time TIME NOT NULL,
     duration INT NOT NULL,
-    issue_description TEXT NOT NULL,
+    issue_description VARCHAR(2000),
     status VARCHAR(40) NOT NULL,
-    provider_message TEXT,
+    provider_message VARCHAR(2000),
     reminder_sent BOOLEAN DEFAULT FALSE,
     refunded BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -90,30 +90,30 @@ CREATE TABLE IF NOT EXISTS session_bookings (
     FOREIGN KEY (provider_id) REFERENCES users(id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_session_provider ON session_bookings(provider_id);
-CREATE INDEX IF NOT EXISTS idx_session_client ON session_bookings(client_id);
-CREATE INDEX IF NOT EXISTS idx_session_date ON session_bookings(session_date);
-CREATE INDEX IF NOT EXISTS idx_session_status ON session_bookings(status);
+CREATE INDEX idx_session_provider ON session_bookings(provider_id);
+CREATE INDEX idx_session_client ON session_bookings(client_id);
+CREATE INDEX idx_session_date ON session_bookings(session_date);
+CREATE INDEX idx_session_status ON session_bookings(status);
 
--- Products table
+-- Products
 CREATE TABLE IF NOT EXISTS products (
     product_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
-    description TEXT,
-    price DECIMAL(19, 2) NOT NULL,
+    description VARCHAR(2000),
+    price DECIMAL(19,2) NOT NULL,
     image_url VARCHAR(255),
     provider_id BIGINT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (provider_id) REFERENCES users(id)
 );
 
--- Orders table
+-- Orders
 CREATE TABLE IF NOT EXISTS orders (
     order_id BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT NOT NULL,
     product_id BIGINT NOT NULL,
     quantity INT,
-    total_price DECIMAL(19, 2),
+    total_price DECIMAL(19,2),
     order_date TIMESTAMP,
     delivery_status VARCHAR(255),
     patient_id BIGINT,
@@ -124,7 +124,7 @@ CREATE TABLE IF NOT EXISTS orders (
     FOREIGN KEY (patient_id) REFERENCES users(id)
 );
 
--- Notifications table
+-- Notifications
 CREATE TABLE IF NOT EXISTS notifications (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     recipient_id BIGINT NOT NULL,
@@ -136,5 +136,8 @@ CREATE TABLE IF NOT EXISTS notifications (
     FOREIGN KEY (recipient_id) REFERENCES users(id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_notification_recipient_read ON notifications(recipient_id, is_read);
-CREATE INDEX IF NOT EXISTS idx_notification_recipient_created ON notifications(recipient_id, created_at);
+CREATE INDEX idx_notification_recipient_read 
+ON notifications(recipient_id, is_read);
+
+CREATE INDEX idx_notification_recipient_created 
+ON notifications(recipient_id, created_at);

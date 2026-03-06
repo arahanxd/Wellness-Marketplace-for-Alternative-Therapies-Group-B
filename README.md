@@ -1,192 +1,281 @@
 # Wellness Marketplace for Alternative Therapies
+
 **React • TypeScript • Spring Boot • MySQL • Java**
 
-Milestone 1 – Practitioner & User Profiles Module
+**Milestone 2 (Week 3–4) – Booking, Sessions & Product Marketplace**
 
-A full-stack web application that enables users to register as Clients or Practitioners, manage profiles, and implement a secure practitioner verification system.
-
----
-
-## 👥 Team Members
-- Aditi – Backend Developer  
-- Arahan Jain – Frontend Developer and Tester  
-- Hemamalini – Backend Developer  
-- Poojitha – Backend Developer  
-- Thanga Kumar – Backend Developer and Tester  
-- Sudhan – Frontend Developer  
+A full-stack web application that enables users to register as Clients or Practitioners, manage profiles, book therapy sessions, and purchase wellness products through a secure and scalable platform.
 
 ---
 
-## 📋 Table of Contents
-- Problem Statement  
-- Milestone 1 Features  
-- Tech Stack  
-- Prerequisites  
-- Installation  
-- Database Setup  
-- Running the Application  
-- Project Structure  
-- Security Features  
-- Backlog  
+# 👥 Team Members
+
+* Aditi – Backend Developer
+* Arahan Jain – Frontend Developer and Tester
+* Hemamalini – Backend Developer
+* Poojitha – Backend Developer
+* Thanga Kumar – Backend Developer and Tester
+* Sudhan – Frontend Developer
 
 ---
 
-## 🎯 Problem Statement (Module 1)
+# 📋 Table of Contents
+
+* Problem Statement
+* Milestone 1 Features
+* Milestone 2 Features
+* Tech Stack
+* Prerequisites
+* Installation
+* Database Setup
+* Running the Application
+* Project Structure
+* Security Features
+
+---
+
+# 🎯 Problem Statement
+
 In the alternative therapy ecosystem, users often struggle to:
 
-- Identify verified practitioners  
-- Register securely with role-based access  
-- Manage professional profiles  
-- Maintain authentication and session security  
+* Identify verified practitioners
+* Register securely with role-based access
+* Book therapy sessions with available practitioners
+* Track booking history and session activity
+* Purchase wellness products recommended by practitioners
 
-This module focuses on building the foundational authentication and profile management system required for a scalable wellness marketplace.
-
----
-
-## 🚀 Milestone 1 (Week 1–2)
-### Implemented
-- Registration & Login with JWT Authentication  
-- Role-based access (CLIENT, PROVIDER, ADMIN)  
-- Practitioner profile creation  
-- Specialization tagging  
-- Practitioner document upload  
-- Admin verification workflow  
-- User dashboard with session history structure  
+This project focuses on building a **secure wellness marketplace platform** that connects clients with verified practitioners while providing booking management and a product marketplace.
 
 ---
 
-## 🛠️ Tech Stack
-### Frontend
-- React 18  
-- TypeScript  
-- Vite  
-- Tailwind CSS  
+# 🚀 Milestone 1 (Week 1–2)
 
-### Backend
-- Spring Boot 3  
-- Spring Security  
-- JWT Authentication  
-- Spring Data JPA  
-- Lombok  
+## Implemented
 
-### Database
-- MySQL 8  
+* Registration & Login with JWT Authentication
+* Role-based access (CLIENT, PROVIDER, ADMIN)
+* Practitioner profile creation
+* Specialization tagging
+* Practitioner document upload
+* Admin verification workflow
+* User dashboard foundation
 
 ---
 
-## 📦 Prerequisites
-- Java 17+  
-- Node.js 18+  
-- npm  
-- MySQL 8+  
-- Maven  
-- Git  
+# 🚀 Milestone 2 (Week 3–4)
+
+## Implemented
+
+* Practitioner therapy session creation
+* Provider availability scheduling
+* Client session booking system
+* Booking status workflow (Pending / Accepted / Completed)
+* Product marketplace for practitioners
+* Product ordering system for clients
+* Order tracking and history
+* Notification system for booking updates
+* Session and booking history for users
 
 ---
 
-## 🚀 Installation
+# 🛠️ Tech Stack
+
+## Frontend
+
+* React 18
+* TypeScript
+* Vite
+* Tailwind CSS
+
+## Backend
+
+* Spring Boot 3
+* Spring Security
+* JWT Authentication
+* Spring Data JPA
+* Lombok
+
+## Database
+
+* MySQL 8
+
+---
+
+# 📦 Prerequisites
+
+* Java 17+
+* Node.js 18+
+* npm
+* MySQL 8+
+* Maven
+* Git
+
+---
+
+# 🚀 Installation
+
 ```bash
-git clone <https://github.com/arahanxd/Wellness-Marketplace-for-Alternative-Therapies.git>
+git clone https://github.com/arahanxd/Wellness-Marketplace-for-Alternative-Therapies.git
 cd Wellness-Marketplace-for-Alternative-Therapies
 ```
 
-### 🗄️ Database Setup
+---
 
-Open MySQL and run : 
+# 🗄️ Database Setup
+
+Open MySQL and run:
+
 ```sql
 CREATE DATABASE wellness_marketplace;
 ```
-If a database dump is provided (wellness_marketplace.sql), import it using MySQL Workbench:
+
+If a database dump is provided (`wellness_marketplace.sql`), import it using **MySQL Workbench**:
+
 Server → Data Import → Select File → Start Import
 
-### ⚠️ Important: Database Credentials
+---
 
-The project uses : 
+# ⚠️ Important: Database Credentials
+
+The project uses:
+
 ```properties
 spring.datasource.username=***REMOVED***
 spring.datasource.password=***REMOVED***123
 ```
 
-If your MySQL credentials are different, update : 
-```properties
+If your MySQL credentials are different, update:
+
+```
 backend/src/main/resources/application.properties
 ```
 
-Modify : 
+Modify:
+
 ```properties
 spring.datasource.username=YOUR_MYSQL_USERNAME
 spring.datasource.password=YOUR_MYSQL_PASSWORD
 ```
+
 Then restart the backend server.
 
-### ▶ Running the Application
-Start Backend
+---
+
+# ▶ Running the Application
+
+## Start Backend
 
 ```cmd
 cd backend
 mvn clean
 mvn spring-boot:run
 ```
-Backend runs at : 
-http://localhost:8080
 
-Start Frontend
+Backend runs at:
+
+```
+http://localhost:8080
+```
+
+---
+
+## Start Frontend
 
 ```cmd
 cd frontend
 npm install
 npm run dev
 ```
-Frontend runs at : 
+
+Frontend runs at:
+
+```
 http://localhost:5173
-
-## 📁 Project Structure
-
-```text
-backend/
-│
-├── uploads/degrees/
-├── src/main/resources/
-├── src/main/java/com/wellness/backend/
-│   ├── config/
-│   ├── controller/
-│   ├── dto/
-│   ├── exception/
-│   ├── model/
-│   ├── repository/
-│   ├── service/
-│   ├── user/
-│   ├── util/
-│   └── WellnessBackendApplication.java
-│
-frontend/
-│
-├── src/
-│   ├── api/
-│   ├── assets/
-│   ├── components/
-│   ├── constants/
-│   ├── pages/
-└── wellness_marketplace.sql
 ```
 
-## 🔒 Security Features
+---
 
-- BCrypt password encryption
-- JWT-based stateless authentication
-- Role-based authorizatio
-- Secure practitioner verification workflow
+# 🔑 Admin Details
 
-## 🏆 Milestone 1 Outcome
+Admin credentials can be found in:
 
-- Functional Login/Register system
-- Profile setup page
-- Practitioner verification module
-- Role-based dashboards foundation
+```
+backend/.env
+```
 
-## 📌 Upcoming Features (Pending)
+---
 
-- Products tab where practitioners can list and sell their wellness products (e.g., medicines, therapy-related items)
-- Users will be able to browse and purchase these products
-- Product order history tracking for users
-- Sales and order management history for practitioners
+# 📁 Project Structure
+
+```
+.
+├── backend
+│   ├── src
+│   │   ├── main
+│   │   │   ├── java/com/wellness/backend
+│   │   │   │   ├── config
+│   │   │   │   ├── controller
+│   │   │   │   ├── dto
+│   │   │   │   ├── exception
+│   │   │   │   ├── model
+│   │   │   │   ├── repository
+│   │   │   │   └── service
+│   │   │   └── resources
+│   │   │       ├── application.properties
+│   │   │       ├── db
+│   │   │       │   └── migration
+│   │   │       └── session_booking_schema.sql
+│   └── pom.xml
+│
+├── frontend
+│   ├── src
+│   │   ├── api
+│   │   ├── assets
+│   │   ├── components
+│   │   ├── pages
+│   │   ├── utils
+│   │   ├── App.tsx
+│   │   └── main.tsx
+│   ├── index.html
+│   └── package.json
+│
+├── wellness_marketplace.sql
+└── README.md
+```
+
+---
+
+# 🔒 Security Features
+
+* BCrypt password encryption
+* JWT-based stateless authentication
+* Role-based authorization
+* Secure practitioner verification workflow
+
+---
+
+# 🏆 Milestone Outcomes
+
+## Milestone 1
+
+* Functional Login/Register system
+* Profile setup page
+* Practitioner verification module
+
+## Milestone 2
+
+* Therapy session booking system
+* Practitioner availability scheduling
+* Wellness product marketplace
+* Product ordering and tracking
+* Booking and order history
+
+---
+
+# 📌 Upcoming Features
+
+* Practitioner revenue analytics dashboard
+* Client spending and session tracking dashboard
+* Real-time notifications for bookings
+* Calendar synchronization for sessions
+* Advanced product inventory management
