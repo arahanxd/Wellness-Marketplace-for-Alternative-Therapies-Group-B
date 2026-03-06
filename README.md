@@ -161,6 +161,41 @@ Then restart the backend server.
 
 ---
 
+## 🔑 Environment Setup
+
+All sensitive credentials are stored in .env which is ignored by Git.
+
+Use the .env.example file as a template:
+
+# Admin Credentials
+```
+ADMIN_EMAIL=your_admin_email
+ADMIN_PASSWORD=your_admin_password
+```
+
+# Database
+```
+DB_USERNAME=your_mysql_username
+DB_PASSWORD=your_mysql_password
+```
+
+# JWT
+```
+JWT_SECRET=your_jwt_secret_key
+```
+
+# SendGrid
+```
+SENDGRID_API_KEY=your_sendgrid_api_key
+```
+
+1) Copy .env.example to .env
+2) Fill in your real credentials
+3) Never commit .env with real secrets
+
+SendGrid API Key: Sign up at SendGrid
+ → create API key → copy to SENDGRID_API_KEY.
+
 # ▶ Running the Application
 
 ## Start Backend
@@ -204,6 +239,10 @@ backend/.env
 ```
 
 ---
+
+# ⚠️ Important: Database Credentials
+
+Update backend/.env or application.properties with your credentials if different.
 
 # 📁 Project Structure
 
