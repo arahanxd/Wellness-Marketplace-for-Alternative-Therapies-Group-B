@@ -24,7 +24,7 @@ frontend/*.log
 backend/compile_output.txt
 
 # ================================
-# Environment Files
+# Environment / Secrets
 # ================================
 .env
 *.env
@@ -34,6 +34,7 @@ backend/compile_output.txt
 backend/.env
 frontend/.env
 frontend/.env.local
+secrets.txt
 
 # ================================
 # Java / Spring Boot
@@ -44,6 +45,13 @@ backend/target/
 *.jar
 *.war
 *.lst
+*.log
+
+# ================================
+# H2 Database (auto created)
+# ================================
+*.mv.db
+*.trace.db
 
 # ================================
 # IDE / Editor Files
@@ -83,7 +91,13 @@ frontend/public/uploads/
 .tmp/
 
 # ================================
-# Project Specific
+# Test / Temporary
 # ================================
-wellness_marketplace.sql
 test-booking.js
+*.tmp
+*.bak
+
+# ================================
+# Database Dumps
+# ================================
+*.sql
