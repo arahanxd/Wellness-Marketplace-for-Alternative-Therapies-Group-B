@@ -1,24 +1,43 @@
 package com.wellness.backend.dto;
 
+import com.wellness.backend.model.SessionStatus;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class BookingResponseDTO {
+
     private Long id;
-    private Long userId;
+    private Long clientId;
     private String clientName;
     private String clientEmail;
+    private Long providerId;
+    private String providerName;
+    private String providerSpecialization;
+    private String providerProfileImage;
 
-    private LocalDateTime bookingDate;
-    private String startTime;
-    private String endTime;
+    private LocalDate sessionDate;
+    private LocalTime startTime;
+    private LocalTime endTime;
     private Integer duration;
-    private String notes; // Patient comment
-    private String practitionerComment;
-    private String status;
-    private java.math.BigDecimal sessionFee;
-    private boolean refunded;
+    private String description;
 
-    private UserDTO practitioner;
+    private SessionStatus status;
+    private String providerMessage;
+    private String dateStatusColor;
+
+    private boolean reminderSent;
+    private boolean refunded;
+    private java.math.BigDecimal sessionFee;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 }

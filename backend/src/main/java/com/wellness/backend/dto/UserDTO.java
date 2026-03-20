@@ -15,4 +15,6 @@ public class UserDTO {
     private String specialization;
     private String profileImage;
     private java.math.BigDecimal sessionFee;
+    private String address;
+    private String phoneNumber;
 }

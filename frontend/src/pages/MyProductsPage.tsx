@@ -1,15 +1,20 @@
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { DashboardLayout } from '../components/DashboardLayout'
 import { api, type Product, type Profile } from '../api'
 import { formatImageUrl } from '../utils/image'
-import { Package, Plus, Edit2, Trash2, X, CloudUpload, Activity, AlertCircle, Save, ClipboardList, CheckCircle2 } from 'lucide-react'
+import {
+    Package, Plus, Edit2, Trash2, X, CloudUpload, Activity,
+    AlertCircle, Save, ClipboardList, CheckCircle2, Star, ImageIcon
+} from 'lucide-react'
 
 interface ProductForm {
     name: string
     description: string
     price: string
-    image: File | null
+    discountPercentage: string
+    mainImage: File | null
+    additionalImages: File[]
 }
 
 export function MyProductsPage() {
@@ -18,13 +23,16 @@ export function MyProductsPage() {
     const [loading, setLoading] = useState(true)
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [editingProduct, setEditingProduct] = useState<Product | null>(null)
-    const [form, setForm] = useState<ProductForm>({ name: '', description: '', price: '', image: null })
+    const [form, setForm] = useState<ProductForm>({
+        name: '', description: '', price: '', discountPercentage: '0',
+        mainImage: null, additionalImages: []
+    })
+    const [mainImagePreview, setMainImagePreview] = useState<string | null>(null)
+    const [additionalPreviews, setAdditionalPreviews] = useState<string[]>([])
     const [submitting, setSubmitting] = useState(false)
     const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null)
 
-    useEffect(() => {
-        fetchData()
-    }, [])
+    useEffect(() => { fetchData() }, [])
 
     const fetchData = async () => {
         try {
@@ -46,13 +54,42 @@ export function MyProductsPage() {
                 name: product.name,
                 description: product.description,
                 price: product.price.toString(),
-                image: null
+                discountPercentage: (product.discountPercentage ?? 0).toString(),
+                mainImage: null,
+                additionalImages: []
             })
+            setMainImagePreview(product.imageUrl ? (formatImageUrl(product.imageUrl) || null) : null)
+            setAdditionalPreviews([])
         } else {
             setEditingProduct(null)
-            setForm({ name: '', description: '', price: '', image: null })
+            setForm({ name: '', description: '', price: '', discountPercentage: '0', mainImage: null, additionalImages: [] })
+            setMainImagePreview(null)
+            setAdditionalPreviews([])
         }
         setIsModalOpen(true)
+    }
+
+    const handleMainImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0] || null
+        setForm(prev => ({ ...prev, mainImage: file }))
+        if (file) {
+            const url = URL.createObjectURL(file)
+            setMainImagePreview(url)
+        }
+    }
+
+    const handleAdditionalImagesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const newFiles = Array.from(e.target.files || [])
+        const combined = [...form.additionalImages, ...newFiles].slice(0, 5)
+        setForm(prev => ({ ...prev, additionalImages: combined }))
+        const newPreviews = combined.map(f => URL.createObjectURL(f))
+        setAdditionalPreviews(newPreviews)
+    }
+
+    const removeAdditionalImage = (idx: number) => {
+        const updated = form.additionalImages.filter((_, i) => i !== idx)
+        setForm(prev => ({ ...prev, additionalImages: updated }))
+        setAdditionalPreviews(updated.map(f => URL.createObjectURL(f)))
     }
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -64,8 +101,10 @@ export function MyProductsPage() {
         formData.append('name', form.name)
         formData.append('description', form.description)
         formData.append('price', form.price)
+        formData.append('discountPercentage', form.discountPercentage || '0')
         formData.append('providerId', profile.id.toString())
-        if (form.image) formData.append('image', form.image)
+        if (form.mainImage) formData.append('image', form.mainImage)
+        form.additionalImages.forEach(file => formData.append('additionalImages', file))
 
         try {
             if (editingProduct?.productId) {
@@ -79,7 +118,7 @@ export function MyProductsPage() {
             fetchData()
             setTimeout(() => setMessage(null), 3000)
         } catch (err) {
-            setMessage({ text: 'Operation failed.', type: 'error' })
+            setMessage({ text: 'Operation failed. Please try again.', type: 'error' })
         } finally {
             setSubmitting(false)
         }
@@ -114,11 +153,7 @@ export function MyProductsPage() {
 
     return (
         <DashboardLayout sidebarItems={sidebarItems}>
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="space-y-10"
-            >
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-10">
                 <header className="bg-gradient-to-r from-brand-600 to-violet-600 p-12 rounded-[3.5rem] text-white shadow-xl shadow-brand-500/20 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                     <div>
                         <h1 className="text-5xl font-black mb-4 flex items-center gap-4">
@@ -140,8 +175,7 @@ export function MyProductsPage() {
                     <motion.div
                         initial={{ opacity: 0, x: 20 }}
                         animate={{ opacity: 1, x: 0 }}
-                        className={`p-6 rounded-3xl border flex items-center gap-4 font-black text-sm ${message.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-rose-50 border-rose-100 text-rose-600'
-                            }`}
+                        className={`p-6 rounded-3xl border flex items-center gap-4 font-black text-sm ${message.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-rose-50 border-rose-100 text-rose-600'}`}
                     >
                         {message.type === 'success' ? <CheckCircle2 size={24} /> : <AlertCircle size={24} />}
                         {message.text}
@@ -175,13 +209,25 @@ export function MyProductsPage() {
                                             ₹ {product.price.toLocaleString()}
                                         </span>
                                     </div>
+                                    {(product.additionalImages?.length ?? 0) > 0 && (
+                                        <div className="absolute bottom-3 right-3 bg-black/60 text-white px-2.5 py-1 rounded-xl text-[10px] font-black flex items-center gap-1">
+                                            <ImageIcon size={10} /> +{product.additionalImages!.length} photos
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="p-10 flex-1 flex flex-col">
                                     <h3 className="text-2xl font-black text-slate-900 mb-2 truncate">{product.name}</h3>
-                                    <p className="text-slate-500 text-sm font-medium line-clamp-2 mb-8 leading-relaxed">
+                                    <p className="text-slate-500 text-sm font-medium line-clamp-2 mb-4 leading-relaxed">
                                         {product.description}
                                     </p>
+                                    {product.averageRating && product.averageRating > 0 ? (
+                                        <div className="flex items-center gap-1.5 text-amber-500 text-sm font-black mb-4">
+                                            <Star size={14} fill="currentColor" />
+                                            {product.averageRating.toFixed(1)}
+                                            <span className="text-slate-400 font-medium text-xs">({product.reviewCount} reviews)</span>
+                                        </div>
+                                    ) : null}
 
                                     <div className="mt-auto flex gap-3">
                                         <button
@@ -221,7 +267,7 @@ export function MyProductsPage() {
             {/* Modal Overlay */}
             <AnimatePresence>
                 {isModalOpen && (
-                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-6">
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
@@ -234,78 +280,165 @@ export function MyProductsPage() {
                             initial={{ opacity: 0, scale: 0.9, y: 20 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                            className="relative w-full max-w-2xl bg-white rounded-[3.5rem] shadow-2xl overflow-hidden"
+                            className="relative w-full max-w-2xl bg-white rounded-[3.5rem] shadow-2xl overflow-hidden max-h-[92vh] flex flex-col"
                         >
-                            <div className="bg-gradient-to-r from-brand-600 to-violet-600 p-10 text-white flex justify-between items-center">
+                            <div className="bg-gradient-to-r from-brand-600 to-violet-600 p-8 text-white flex justify-between items-center flex-shrink-0">
                                 <div>
-                                    <h2 className="text-3xl font-black">{editingProduct ? 'Update Product' : 'Add New Product'}</h2>
-                                    <p className="text-white/70 font-medium">Enter product details and upload an image.</p>
+                                    <h2 className="text-2xl font-black">{editingProduct ? 'Update Product' : 'Add New Product'}</h2>
+                                    <p className="text-white/70 font-medium text-sm">Fill in details and upload images.</p>
                                 </div>
                                 <button onClick={() => setIsModalOpen(false)} className="p-3 hover:bg-white/10 rounded-2xl transition-all">
                                     <X size={24} />
                                 </button>
                             </div>
 
-                            <form onSubmit={handleSubmit} className="p-10 space-y-8">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <form onSubmit={handleSubmit} className="p-8 space-y-6 overflow-y-auto flex-1">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4">Product Name</label>
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Product Name</label>
                                         <input
                                             required
                                             value={form.name}
                                             onChange={e => setForm({ ...form, name: e.target.value })}
                                             placeholder="e.g. Ergonomic Yoga Mat"
-                                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-5 px-6 font-bold text-slate-900 focus:bg-white focus:border-brand-500 transition-all outline-none"
+                                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-5 font-bold text-slate-900 focus:bg-white focus:border-brand-500 transition-all outline-none"
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4">Price (INR)</label>
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Price (INR)</label>
                                         <input
                                             required
                                             type="number"
                                             value={form.price}
                                             onChange={e => setForm({ ...form, price: e.target.value })}
                                             placeholder="0.00"
-                                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-5 px-6 font-bold text-slate-900 focus:bg-white focus:border-brand-500 transition-all outline-none"
+                                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-5 font-bold text-slate-900 focus:bg-white focus:border-brand-500 transition-all outline-none"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Discount % (0–100)</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            max="100"
+                                            value={form.discountPercentage}
+                                            onChange={e => setForm({ ...form, discountPercentage: e.target.value })}
+                                            placeholder="0"
+                                            className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-5 font-bold text-slate-900 focus:bg-white focus:border-brand-500 transition-all outline-none"
                                         />
                                     </div>
                                 </div>
 
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4">Description</label>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Description</label>
                                     <textarea
                                         required
                                         value={form.description}
                                         onChange={e => setForm({ ...form, description: e.target.value })}
                                         placeholder="Tell your clients about this product..."
-                                        rows={4}
-                                        className="w-full bg-slate-50 border border-slate-100 rounded-3xl py-5 px-6 font-bold text-slate-900 focus:bg-white focus:border-brand-500 transition-all outline-none resize-none"
+                                        rows={3}
+                                        className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-5 font-bold text-slate-900 focus:bg-white focus:border-brand-500 transition-all outline-none resize-none"
                                     />
                                 </div>
 
+                                {/* Main Image Upload */}
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4">Product Image</label>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2 flex items-center gap-2">
+                                        <Star size={10} className="text-amber-500" fill="currentColor" /> Main Thumbnail Image
+                                    </label>
+                                    <div className="flex gap-4 items-center">
+                                        <div className="relative group cursor-pointer flex-1">
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={handleMainImageChange}
+                                                className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                                            />
+                                            <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl p-5 flex items-center gap-4 group-hover:bg-brand-50 group-hover:border-brand-200 transition-all">
+                                                <CloudUpload size={28} className="text-slate-300 group-hover:text-brand-600 flex-shrink-0 transition-all" />
+                                                <div>
+                                                    <p className="text-sm font-black text-slate-700 group-hover:text-brand-700">
+                                                        {form.mainImage ? form.mainImage.name : editingProduct ? 'Replace thumbnail...' : 'Click to upload thumbnail'}
+                                                    </p>
+                                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">PNG or JPG, max 5MB</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {mainImagePreview && (
+                                            <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-brand-200 flex-shrink-0">
+                                                <img src={mainImagePreview} alt="Preview" className="w-full h-full object-cover" />
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Additional Images Upload */}
+                                <div className="space-y-3">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2 flex items-center gap-2">
+                                        <ImageIcon size={10} /> Additional Gallery Images (up to 5)
+                                    </label>
                                     <div className="relative group cursor-pointer">
                                         <input
                                             type="file"
                                             accept="image/*"
-                                            onChange={e => setForm({ ...form, image: e.target.files?.[0] || null })}
+                                            multiple
+                                            onChange={handleAdditionalImagesChange}
                                             className="absolute inset-0 opacity-0 cursor-pointer z-10"
                                         />
-                                        <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl p-8 flex flex-col items-center justify-center text-center group-hover:bg-brand-50 group-hover:border-brand-200 transition-all">
-                                            <CloudUpload size={40} className="text-slate-300 mb-4 group-hover:text-brand-600 transition-all" />
-                                            <p className="text-sm font-black text-slate-900 mb-1">
-                                                {form.image ? form.image.name : 'Click or drop product image'}
-                                            </p>
-                                            <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">PNG or JPG up to 5MB</p>
+                                        <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl p-5 flex items-center gap-4 group-hover:bg-violet-50 group-hover:border-violet-200 transition-all">
+                                            <ImageIcon size={28} className="text-slate-300 group-hover:text-violet-500 flex-shrink-0 transition-all" />
+                                            <div>
+                                                <p className="text-sm font-black text-slate-700 group-hover:text-violet-700">
+                                                    {form.additionalImages.length > 0
+                                                        ? `${form.additionalImages.length} image(s) selected — click to add more`
+                                                        : 'Click to upload additional images'}
+                                                </p>
+                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Select multiple files at once</p>
+                                            </div>
                                         </div>
                                     </div>
+
+                                    {/* Preview grid for additional images */}
+                                    {additionalPreviews.length > 0 && (
+                                        <div className="flex flex-wrap gap-3 mt-2">
+                                            {additionalPreviews.map((preview, idx) => (
+                                                <div key={idx} className="relative group">
+                                                    <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-violet-200">
+                                                        <img src={preview} alt={`Additional ${idx + 1}`} className="w-full h-full object-cover" />
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeAdditionalImage(idx)}
+                                                        className="absolute -top-2 -right-2 bg-rose-500 text-white w-6 h-6 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg"
+                                                    >
+                                                        <X size={12} />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Existing additional images when editing */}
+                                    {editingProduct && (editingProduct.additionalImages?.length ?? 0) > 0 && (
+                                        <div className="mt-3">
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 ml-2">
+                                                Existing Gallery Images (manage in product manager)
+                                            </p>
+                                            <div className="flex flex-wrap gap-2">
+                                                {editingProduct.additionalImages!.map(img => (
+                                                    <div key={img.imageId} className="w-16 h-16 rounded-xl overflow-hidden border border-slate-200 opacity-60">
+                                                        <img src={formatImageUrl(img.imageUrl)} alt="Existing" className="w-full h-full object-cover" />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <button
                                     type="submit"
                                     disabled={submitting}
-                                    className="w-full bg-slate-900 text-white rounded-3xl py-6 font-black text-lg shadow-2xl hover:bg-black hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                                    className="w-full bg-slate-900 text-white rounded-2xl py-5 font-black text-lg shadow-2xl hover:bg-black hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
                                 >
                                     {submitting ? <Activity size={24} className="animate-spin" /> : <Save size={24} />}
                                     {submitting ? 'Saving...' : editingProduct ? 'Update Product' : 'Create Product'}

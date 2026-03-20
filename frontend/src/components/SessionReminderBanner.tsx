@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react'
-import type { SessionBooking } from '../api'
+import type { Booking } from '../api'
 import { Bell } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 interface Props {
-  fetchReminders: () => Promise<SessionBooking[]>
+  fetchReminders: () => Promise<Booking[]>
 }
 
 export function SessionReminderBanner({ fetchReminders }: Props) {
   const [visible, setVisible] = useState(false)
-  const [nextSession, setNextSession] = useState<SessionBooking | null>(null)
+  const [nextSession, setNextSession] = useState<Booking | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -32,7 +32,7 @@ export function SessionReminderBanner({ fetchReminders }: Props) {
 
   return (
     <AnimatePresence>
-      {visible && nextSession && (
+      {visible && nextSession && !localStorage.getItem(`dismissed-session-${nextSession.id}-${nextSession.sessionDate}-${nextSession.startTime}`) && (
         <motion.div
           initial={{ y: -40, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -58,7 +58,10 @@ export function SessionReminderBanner({ fetchReminders }: Props) {
               </div>
               <button
                 type="button"
-                onClick={() => setVisible(false)}
+                onClick={() => {
+                  localStorage.setItem(`dismissed-session-${nextSession.id}-${nextSession.sessionDate}-${nextSession.startTime}`, 'true')
+                  setVisible(false)
+                }}
                 className="text-[11px] font-bold uppercase tracking-widest text-slate-300 hover:text-white"
               >
                 Dismiss

@@ -11,7 +11,7 @@ A full-stack web application that enables users to register as Clients or Practi
 # 👥 Team Members
 
 * Aditi – Backend Developer
-* Arahan Jain – Frontend Developer and Tester
+* Arahan Jain – FullStack Developer and Tester
 * Hemamalini – Backend Developer
 * Poojitha – Backend Developer
 * Thanga Kumar – Backend Developer and Tester
@@ -75,6 +75,15 @@ This project focuses on building a **secure wellness marketplace platform** that
 * Order tracking and history
 * Notification system for booking updates
 * Session and booking history for users
+
+# 🚀 Milestone 3 (Week 5–6)
+
+## Implemented
+
+* Seamless wellness product browsing and discovery
+* Secure product purchasing with cart management
+* Interactive community forum for Q&A and discussions
+* Product reviews and rating system
 
 ---
 
@@ -252,28 +261,41 @@ Update backend/.env or application.properties with your credentials if different
 │   │   │   │   ├── exception
 │   │   │   │   ├── model
 │   │   │   │   ├── repository
-│   │   │   │   └── service
+│   │   │   │   ├── scheduler
+│   │   │   │   ├── service
+│   │   │   │   ├── user
+│   │   │   │   └── util
 │   │   │   └── resources
 │   │   │       ├── application.properties
-│   │   │       ├── db
-│   │   │       │   └── migration
+│   │   │       ├── data.sql
+│   │   │       ├── db/migration
+│   │   │       ├── schema.sql
 │   │   │       └── session_booking_schema.sql
 │   └── pom.xml
 │
 ├── frontend
 │   ├── src
 │   │   ├── api
+│   │   ├── api.ts
 │   │   ├── assets
 │   │   ├── components
+│   │   ├── config.ts
+│   │   ├── constants
 │   │   ├── pages
 │   │   ├── utils
+│   │   ├── App.css
 │   │   ├── App.tsx
+│   │   ├── index.css
 │   │   └── main.tsx
 │   ├── index.html
 │   └── package.json
 │
-├── wellness_marketplace.sql
-└── README.md
+├── .vscode
+├── LICENSE.txt
+├── README.md
+├── TODO.md
+├── test-booking.js
+└── wellness_marketplace.sql
 ```
 
 ---
@@ -303,12 +325,17 @@ Update backend/.env or application.properties with your credentials if different
 * Product ordering and tracking
 * Booking and order history
 
+## Milestone 3
+
+* Seamless wellness product browsing and discovery – Users can explore products by category, popularity, and practitioner recommendations.
+* Secure product purchasing and cart management – Easy add-to-cart, checkout, and order tracking experience.
+* Interactive community forum – Ask questions, share experiences, and engage with practitioners and other clients.
+* Product reviews and ratings system – Users can submit feedback and rate products to guide others.
+
 ---
 
 # 📌 Upcoming Features
 
-* Practitioner revenue analytics dashboard
-* Client spending and session tracking dashboard
-* Real-time notifications for bookings
-* Calendar synchronization for sessions
-* Advanced product inventory management
+* AI-powered symptom-based recommendations – Users receive personalized wellness and therapy suggestions based on their symptoms and health data.
+* Integration with external health and fitness APIs – Connect with OpenFDA, WHO, and fitness tracking services for enriched data and insights.
+* Smart notifications and analytics dashboard – Real-time updates for bookings, product recommendations, and user activity, plus insightful analytics for both clients and practitioners.

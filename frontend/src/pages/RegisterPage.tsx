@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { TopNav } from '../components/TopNav'
-import { api } from '../api/api'
-import type { RegisterRequest } from '../api/api'
+import { api } from '../api'
+import type { RegisterRequest } from '../api'
 import { motion, AnimatePresence } from 'framer-motion'
 import { User, Mail, Lock, School, MapPin, Globe, ArrowRight, Sparkles, CheckCircle2 } from 'lucide-react'
 import { SPECIALIZATIONS } from '../constants/specializations'
+import { validateIndianPhone, normalizeIndianPhone } from '../utils/validation'
 
 export function RegisterPage() {
   const [params] = useSearchParams()
@@ -19,7 +20,9 @@ export function RegisterPage() {
     confirmPassword: '',
     specialization: '',
     city: '',
-    country: ''
+    country: '',
+    address: '',
+    phoneNumber: ''
   })
 
   const [dropdownRole, setDropdownRole] = useState<'PATIENT' | 'PRACTITIONER'>(defaultRole as 'PATIENT' | 'PRACTITIONER')
@@ -38,6 +41,10 @@ export function RegisterPage() {
     if (formData.password.length < 8) newErrors.password = 'Password must be at least 8 characters'
     if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = 'Passwords do not match'
     if (dropdownRole === 'PRACTITIONER' && !formData.specialization) newErrors.specialization = 'Specialization is required'
+    
+    if (formData.phoneNumber && !validateIndianPhone(formData.phoneNumber)) {
+      newErrors.phoneNumber = 'Enter a valid 10-digit Indian phone number starting with 6-9'
+    }
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -63,7 +70,9 @@ export function RegisterPage() {
         role: roleMap[dropdownRole],
         specialization: formData.specialization,
         city: formData.city,
-        country: formData.country
+        country: formData.country,
+        address: formData.address,
+        phoneNumber: formData.phoneNumber ? normalizeIndianPhone(formData.phoneNumber) : ''
       }
 
       await api.register(payload)
@@ -226,19 +235,50 @@ export function RegisterPage() {
                       className="w-full rounded-2xl border border-slate-200 bg-slate-50/50 py-4 pl-12 pr-4 text-sm focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-500/10 transition-all font-medium"
                     />
                   </div>
-                  <div className="relative group">
-                    <Globe className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-500 transition-colors" size={18} />
-                    <input
-                      type="text"
-                      name="country"
-                      value={formData.country}
-                      onChange={handleChange}
-                      placeholder="Country"
-                      className="w-full rounded-2xl border border-slate-200 bg-slate-50/50 py-4 pl-12 pr-4 text-sm focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-500/10 transition-all font-medium"
-                    />
+                    <div className="relative group">
+                      <Globe className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-500 transition-colors" size={18} />
+                      <input
+                        type="text"
+                        name="country"
+                        value={formData.country}
+                        onChange={handleChange}
+                        placeholder="Country"
+                        className="w-full rounded-2xl border border-slate-200 bg-slate-50/50 py-4 pl-12 pr-4 text-sm focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-500/10 transition-all font-medium"
+                      />
+                    </div>
                   </div>
+
+                  {dropdownRole === 'PATIENT' && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      className="space-y-4 pt-2"
+                    >
+                      <div className="relative group">
+                        <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-500 transition-colors" size={18} />
+                        <input
+                          type="text"
+                          name="address"
+                          value={formData.address}
+                          onChange={handleChange}
+                          placeholder="Address (Optional)"
+                          className="w-full rounded-2xl border border-slate-200 bg-slate-50/50 py-4 pl-12 pr-4 text-sm focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-500/10 transition-all font-medium"
+                        />
+                      </div>
+                      <div className="relative group">
+                        <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-500 transition-colors" size={18} />
+                        <input
+                          type="text"
+                          name="phoneNumber"
+                          value={formData.phoneNumber}
+                          onChange={handleChange}
+                          placeholder="Phone Number (Optional)"
+                          className="w-full rounded-2xl border border-slate-200 bg-slate-50/50 py-4 pl-12 pr-4 text-sm focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-500/10 transition-all font-medium"
+                        />
+                      </div>
+                    </motion.div>
+                  )}
                 </div>
-              </div>
 
               {errors.general && (
                 <div className="bg-red-50 text-red-600 p-4 rounded-xl text-sm font-bold border border-red-100">

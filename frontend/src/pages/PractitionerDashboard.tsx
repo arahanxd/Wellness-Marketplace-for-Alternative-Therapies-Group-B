@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, type Profile, type SessionBooking, type Notification, type PractitionerStats, type Booking } from '../api';
+import { api, type Profile, type Notification, type PractitionerStats, type Booking, type AvailabilitySlot, type Product } from '../api';
 import { formatDateToIndian } from '../utils/date';
 
 import { SPECIALIZATIONS } from '../constants/specializations';
@@ -10,7 +10,7 @@ import { PractitionerAnalytics } from '../components/PractitionerAnalytics';
 import {
   CheckCircle2, XCircle, FileText, Calendar, User, LayoutDashboard,
   CloudUpload, ArrowRight, ShieldCheck, Activity, Globe, MessageSquare, RefreshCw, AlertCircle,
-  Package, ClipboardList, Bell, DollarSign, TrendingUp, ShoppingBag
+  Package, ClipboardList, Bell, DollarSign, TrendingUp, ShoppingBag, Edit2, Trash2, Plus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -43,18 +43,17 @@ function VerificationStatusBadge({ status }: { status?: string }) {
   )
 }
 
-const getSessionStatus = (booking: any): 'Pending' | 'Ongoing' | 'Completed' | 'Upcoming' | 'Not Completed' | 'Cancelled' | 'Rejected' | 'Refunded' => {
-  const { bookingDate, sessionDate, startTime, duration, status } = booking
+const getSessionStatus = (booking: Booking): 'Pending' | 'Ongoing' | 'Completed' | 'Upcoming' | 'Not Completed' | 'Cancelled' | 'Rejected' | 'Refunded' => {
+  const { sessionDate, startTime, duration, status } = booking
   if (status === 'COMPLETED') return 'Completed'
-  if (status === 'NOT_COMPLETED') return 'Not Completed'
+  if (status === 'PENDING_COMPLETION_ACTION' || status === 'NOT_COMPLETED') return 'Not Completed'
   if (status === 'CANCELLED') return 'Cancelled'
   if (status === 'REJECTED') return 'Rejected'
-  if (status === 'REFUNDED') return 'Refunded'
-  const dateStr = (bookingDate || sessionDate || '').split('T')[0]
-  if (!dateStr || !startTime) return 'Pending'
+  
+  if (!sessionDate || !startTime) return 'Pending'
 
   const now = new Date()
-  // Combine date and time precisely for comparison
+  const dateStr = sessionDate.split('T')[0]
   const sessionDateTime = new Date(`${dateStr}T${startTime}`)
   const dur = duration || 60
   const end = new Date(sessionDateTime.getTime() + dur * 60 * 1000)
@@ -65,7 +64,7 @@ const getSessionStatus = (booking: any): 'Pending' | 'Ongoing' | 'Completed' | '
 }
 
 const getSessionStatusClasses = (status: ReturnType<typeof getSessionStatus>) => {
-  if (status === 'Pending') return 'bg-yellow-100 text-yellow-700'
+  if (status === 'Pending' || status === 'Upcoming') return 'bg-yellow-100 text-yellow-700'
   if (status === 'Ongoing') return 'bg-blue-100 text-blue-700'
   if (status === 'Not Completed') return 'bg-rose-100 text-rose-700 font-black'
   if (status === 'Cancelled' || status === 'Rejected') return 'bg-slate-100 text-slate-500 font-black'
@@ -84,11 +83,23 @@ function PractitionerRevenueStats({ stats, loading }: { stats: PractitionerStats
     )
   }
 
+  // Calculate growth percentage based on last two months if available
+  const monthlyValues = Object.values(stats.monthlyRevenue)
+  let growthPercent = '+0%'
+  if (monthlyValues.length >= 2) {
+    const current = monthlyValues[monthlyValues.length - 1]
+    const previous = monthlyValues[monthlyValues.length - 2]
+    if (previous > 0) {
+      const growth = ((current - previous) / previous) * 100
+      growthPercent = `${growth >= 0 ? '+' : ''}${growth.toFixed(1)}%`
+    }
+  }
+
   const cards = [
     { label: 'Total Revenue', value: `₹ ${stats.totalRevenue.toLocaleString()}`, icon: <DollarSign size={20} />, color: 'text-emerald-600', bg: 'bg-emerald-50' },
     { label: 'Orders Received', value: stats.totalOrders.toString(), icon: <ShoppingBag size={20} />, color: 'text-brand-600', bg: 'bg-brand-50' },
     { label: 'Products Sold', value: stats.totalProductsSold.toString(), icon: <Package size={20} />, color: 'text-violet-600', bg: 'bg-violet-50' },
-    { label: 'Platform Growth', value: '+12.5%', icon: <TrendingUp size={20} />, color: 'text-amber-600', bg: 'bg-amber-50' },
+    { label: 'Platform Growth', value: growthPercent, icon: <TrendingUp size={20} />, color: 'text-amber-600', bg: 'bg-amber-50' },
   ]
 
   return (
@@ -126,9 +137,10 @@ export function PractitionerDashboard() {
   const [loading, setLoading] = useState(false);
   const [degreeFile, setDegreeFile] = useState<File | null>(null);
   const [message, setMessage] = useState('');
-  const [activeTab, setActiveTab] = useState<'overview' | 'requests' | 'sessions' | 'calendar' | 'analytics' | 'profile' | 'verification'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'requests' | 'sessions' | 'calendar' | 'analytics' | 'profile' | 'verification' | 'products'>('overview');
+  const [products, setProducts] = useState<Product[]>([]);
   const [editForm, setEditForm] = useState<Partial<Profile>>({});
-  const [rescheduleSession, setRescheduleSession] = useState<SessionBooking | null>(null);
+  const [rescheduleSession, setRescheduleSession] = useState<Booking | null>(null);
   const [rescheduleDate, setRescheduleDate] = useState<string>('');
   const [rescheduleStartTime, setRescheduleStartTime] = useState<string>('');
   const [rescheduleEndTime, setRescheduleEndTime] = useState<string>('');
@@ -139,18 +151,33 @@ export function PractitionerDashboard() {
   const [statsLoading, setStatsLoading] = useState(true);
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
+  // Calendar-specific state (all statuses)
+  const [calendarSessions, setCalendarSessions] = useState<Booking[]>([]);
+  // Availability management
+  const [availabilitySlots, setAvailabilitySlots] = useState<AvailabilitySlot[]>([]);
+  const [avDate, setAvDate] = useState('');
+  const [avStart, setAvStart] = useState('');
+  const [avEnd, setAvEnd] = useState('');
+  const [avLoading, setAvLoading] = useState(false);
+  const [avMessage, setAvMessage] = useState('');
+  const [weeklyAvailability, setWeeklyAvailability] = useState<any[]>([]);
+  const [weeklyDay, setWeeklyDay] = useState<'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY' | 'SUNDAY'>('MONDAY');
+  const [weeklyStart, setWeeklyStart] = useState('');
+  const [weeklyEnd, setWeeklyEnd] = useState('');
+  const [weeklyLoading, setWeeklyLoading] = useState(false);
 
   const sidebarItems = [
     { label: 'Overview', onClick: () => setActiveTab('overview'), active: activeTab === 'overview', icon: <LayoutDashboard size={20} /> },
     { label: 'Booking Requests', onClick: () => setActiveTab('requests'), active: activeTab === 'requests', icon: <Calendar size={20} /> },
-    { label: 'Session History', onClick: () => setActiveTab('sessions'), active: activeTab === 'sessions', icon: <ClipboardList size={20} /> },
     { label: 'Calendar', onClick: () => setActiveTab('calendar'), active: activeTab === 'calendar', icon: <Calendar size={20} /> },
+    { label: 'Availability', onClick: () => setActiveTab('availability' as any), active: activeTab === ('availability' as any), icon: <Activity size={20} /> },
     { label: 'Analytics', onClick: () => setActiveTab('analytics'), active: activeTab === 'analytics', icon: <TrendingUp size={20} /> },
-    { label: 'Marketplace', path: '/marketplace', icon: <Globe size={20} /> },
-    { label: 'My Products', path: '/my-products', icon: <Package size={20} /> },
-    { label: 'Product Orders', path: '/product-orders', icon: <ClipboardList size={20} /> },
+    { label: 'Find my Practitioner', path: '/marketplace', icon: <Globe size={20} /> },
+    { label: 'My Products', onClick: () => setActiveTab('products'), active: activeTab === 'products', icon: <Package size={20} /> },
+    { label: 'Orders', path: '/product-orders', icon: <ClipboardList size={20} /> },
     { label: 'Profile', onClick: () => setActiveTab('profile'), active: activeTab === 'profile', icon: <User size={20} /> },
     { label: 'Verification', onClick: () => setActiveTab('verification'), active: activeTab === 'verification', icon: <ShieldCheck size={20} /> },
+    { label: 'Community Forum', path: '/forum', icon: <MessageSquare size={20} /> },
   ];
 
   useEffect(() => {
@@ -170,38 +197,28 @@ export function PractitionerDashboard() {
       if (res.profileImage) {
         localStorage.setItem('profileImage', res.profileImage);
       }
-      setEditForm({
-        name: res.name,
-        city: res.city,
-        country: res.country,
-        specialization: res.specialization,
-        sessionFee: res.sessionFee,
-      });
-      if (res.id) {
-        const [bookingRes, sessionRes, bookingHistoryRes, sessionHistoryRes] = await Promise.all([
-          api.getPractitionerBookings(res.id),
-          api.getProviderSessions(res.id),
-          api.getPractitionerBookingHistory(res.id),
-          api.getProviderSessionsHistory(res.id)
-        ]);
-
-        // Helper to normalize smart sessions
-        const normalizeSmartSession = (s: SessionBooking) => ({
-          ...s,
-          bookingDate: s.sessionDate,
-          isSmartSession: true
+      if (activeTab !== 'profile') {
+        setEditForm({
+          name: res.name,
+          city: res.city,
+          country: res.country,
+          specialization: res.specialization,
+          sessionFee: res.sessionFee,
         });
-
-        const normalizedSessions = sessionRes.map(normalizeSmartSession);
-        const normalizedHistorySessions = sessionHistoryRes.map(normalizeSmartSession);
-
-        // Merge all sessions, avoiding duplicates if any (though endpoints should be distinct)
-        const allSessions = [...bookingRes, ...normalizedSessions, ...bookingHistoryRes, ...normalizedHistorySessions];
-
-        // Remove potential duplicates by ID if same session is returned by both upcoming and history
-        const uniqueSessions = Array.from(new Map(allSessions.map(s => [s.id, s])).values());
-
-        setBookings(uniqueSessions as any);
+      }
+      if (res.id) {
+        const [bookingRes, calendarRes, availRes, weeklyRes, productRes] = await Promise.all([
+          api.getPractitionerBookings(res.id),
+          api.getProviderCalendarSessions(res.id),
+          api.getProviderAvailability(res.id),
+          api.getWeeklyAvailability(res.id),
+          api.getProviderProducts(res.id),
+        ]);
+        setProducts(productRes);
+        setBookings(bookingRes);
+        setCalendarSessions(calendarRes);
+        setAvailabilitySlots(availRes);
+        setWeeklyAvailability(weeklyRes);
         fetchStats(res.id);
         fetchAnalytics(res.id);
       }
@@ -272,19 +289,12 @@ export function PractitionerDashboard() {
     }
   };
 
-  const completeBooking = async (booking: any) => {
+  const completeBooking = async (booking: Booking) => {
     if (!booking?.id) return;
     setSessionActionLoadingId(booking.id);
     try {
-      const updated = booking.isSmartSession
-        ? await api.completeSession(booking.id)
-        : await api.completeBooking(booking.id);
-
-      const normalized = booking.isSmartSession
-        ? { ...updated, bookingDate: (updated as any).sessionDate, isSmartSession: true }
-        : updated;
-
-      setBookings((prev) => prev.map((b) => (b.id === booking.id ? normalized : b)) as any);
+      const updated = await api.completeBooking(booking.id);
+      setBookings((prev) => prev.map((b) => (b.id === booking.id ? updated : b)));
       setMessage('Session marked as completed');
     } catch (err) {
       console.error(err);
@@ -294,19 +304,12 @@ export function PractitionerDashboard() {
     }
   };
 
-  const markSessionNotCompleted = async (booking: any) => {
+  const markSessionNotCompleted = async (booking: Booking) => {
     if (!booking?.id) return;
     setSessionActionLoadingId(booking.id);
     try {
-      const updated = booking.isSmartSession
-        ? await api.notCompleteSession(booking.id)
-        : await api.notCompleteBooking(booking.id);
-
-      const normalized = booking.isSmartSession
-        ? { ...updated, bookingDate: (updated as any).sessionDate, isSmartSession: true }
-        : updated;
-
-      setBookings((prev) => prev.map((b) => (b.id === booking.id ? normalized : b)) as any);
+      const updated = await api.notCompleteBooking(booking.id);
+      setBookings((prev) => prev.map((b) => (b.id === booking.id ? updated : b)));
       setMessage('Session marked as NOT completed (Refund triggered)');
     } catch (err) {
       console.error(err);
@@ -336,17 +339,15 @@ export function PractitionerDashboard() {
     const booking = bookings.find((b) => b.id === bookingId);
     if (!booking) return;
 
-    // We store the booking in rescheduleSession initially to repurpose the form
-    setRescheduleSession(booking as unknown as SessionBooking);
+    setRescheduleSession(booking);
 
-    if (booking.bookingDate) {
-      // Assuming naive ISO string that JS will parse locally, but let's break it down safely
+    if (booking.sessionDate) {
       try {
-        const dateStr = booking.bookingDate.toString();
+        const dateStr = booking.sessionDate.toString();
         if (dateStr.includes('T')) {
           const [d, t] = dateStr.split('T');
           setRescheduleDate(d);
-          setRescheduleStartTime(t.substring(0, 5)); // get HH:mm
+          setRescheduleStartTime(t.substring(0, 5));
         } else {
           const dateObj = new Date(dateStr);
           const yyyy = dateObj.getFullYear();
@@ -378,6 +379,7 @@ export function PractitionerDashboard() {
       const updated = await api.rescheduleBooking(rescheduleSession.id, {
         newSessionDate: rescheduleDate || undefined,
         newStartTime: rescheduleStartTime || undefined,
+        providerMessage: rescheduleMessage || 'Suggested a new time'
       });
       setBookings((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
       setRescheduleSession(null);
@@ -392,6 +394,77 @@ export function PractitionerDashboard() {
   const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setEditForm({ ...editForm, [name]: value });
+  };
+
+  const addAvailabilitySlot = async () => {
+    if (!avDate || !avStart || !avEnd) {
+      setAvMessage('Please fill in all availability fields.');
+      return;
+    }
+    setAvLoading(true);
+    setAvMessage('');
+    try {
+      const newSlot = await api.addAvailabilitySlot({ availableDate: avDate, startTime: avStart, endTime: avEnd });
+      setAvailabilitySlots(prev => [...prev, newSlot]);
+      setAvDate('');
+      setAvStart('');
+      setAvEnd('');
+      setAvMessage('Availability slot added successfully!');
+      setTimeout(() => setAvMessage(''), 3000);
+    } catch (err: any) {
+      setAvMessage(err?.response?.data?.message || err?.response?.data || 'Failed to add slot. Check for overlap or invalid times.');
+    } finally {
+      setAvLoading(false);
+    }
+  };
+
+  const deleteAvailabilitySlot = async (slotId: number) => {
+    try {
+      await api.deleteAvailabilitySlot(slotId);
+      setAvailabilitySlots(prev => prev.filter(s => s.id !== slotId));
+      setAvMessage('Slot removed.');
+      setTimeout(() => setAvMessage(''), 2000);
+    } catch (err) {
+      console.error(err);
+      setAvMessage('Failed to remove slot.');
+    }
+  };
+
+  const addWeeklySlot = async () => {
+    if (!weeklyStart || !weeklyEnd) {
+      setAvMessage('Please set start and end times for the weekly slot.');
+      return;
+    }
+    setWeeklyLoading(true);
+    try {
+      const newSlot = await api.addWeeklyAvailabilitySlot({
+        dayOfWeek: weeklyDay,
+        startTime: weeklyStart,
+        endTime: weeklyEnd
+      });
+      setWeeklyAvailability(prev => [...prev, newSlot]);
+      setWeeklyStart('');
+      setWeeklyEnd('');
+      setAvMessage(`Recurring slot for ${weeklyDay} added!`);
+      setTimeout(() => setAvMessage(''), 3000);
+    } catch (err) {
+      console.error(err);
+      setAvMessage('Failed to add weekly slot.');
+    } finally {
+      setWeeklyLoading(false);
+    }
+  };
+
+  const deleteWeeklySlot = async (id: number) => {
+    try {
+      await api.deleteWeeklyAvailabilitySlot(id);
+      setWeeklyAvailability(prev => prev.filter(s => s.id !== id));
+      setAvMessage('Weekly slot removed.');
+      setTimeout(() => setAvMessage(''), 2000);
+    } catch (err) {
+      console.error(err);
+      setAvMessage('Failed to remove weekly slot.');
+    }
   };
 
   const saveProfile = async () => {
@@ -449,7 +522,7 @@ export function PractitionerDashboard() {
 
   return (
     <>
-      <SessionReminderBanner fetchReminders={api.getUpcomingSessionReminders} />
+      <SessionReminderBanner fetchReminders={() => api.getUpcomingSessions(profile.id, 'PROVIDER')} />
       <DashboardLayout sidebarItems={sidebarItems}>
         <div className="space-y-10">
           {/* Header */}
@@ -590,14 +663,14 @@ export function PractitionerDashboard() {
                       <tbody className="divide-y divide-slate-50">
                         {bookings.filter(b => {
                           const status = getSessionStatus(b);
-                          return status === 'Upcoming' || status === 'Ongoing';
+                          return status === 'Upcoming' || status === 'Ongoing' || status === 'Pending';
                         }).length > 0 ? (
                           bookings
                             .filter(b => {
                               const status = getSessionStatus(b);
-                              return status === 'Upcoming' || status === 'Ongoing';
+                              return status === 'Upcoming' || status === 'Ongoing' || status === 'Pending';
                             })
-                            .sort((a, b) => new Date(a.bookingDate).getTime() - new Date(b.bookingDate).getTime())
+                            .sort((a, b) => new Date(a.sessionDate).getTime() - new Date(b.sessionDate).getTime())
                             .map((booking, idx) => (
                               <motion.tr
                                 key={booking.id}
@@ -609,23 +682,23 @@ export function PractitionerDashboard() {
                                 <td className="py-6 pl-4">
                                   <div className="flex items-center gap-4">
                                     <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center text-brand-600 font-black text-xs">
-                                      P
+                                      {booking.clientName?.[0] ?? 'P'}
                                     </div>
                                     <span className="font-bold text-slate-900">{booking.clientName || 'Patient'}</span>
                                   </div>
                                 </td>
                                 <td className="py-6 text-sm font-bold text-slate-600 tabular-nums">
-                                  {formatDateToIndian(booking.bookingDate)}
+                                  {formatDateToIndian(booking.sessionDate)} {booking.startTime}
                                 </td>
                                 <td className="py-6">
-                                  <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-sm ${booking.status === 'CONFIRMED' ? 'border-emerald-200 text-emerald-600 bg-emerald-50' :
+                                  <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-sm ${booking.status === 'CONFIRMED' || booking.status === 'ACCEPTED' ? 'border-emerald-200 text-emerald-600 bg-emerald-50' :
                                     booking.status === 'CANCELLED' ? 'border-rose-200 text-rose-600 bg-rose-50' :
                                       'border-brand-200 text-brand-600 bg-brand-50'
                                     }`}>
                                     {booking.status}
                                   </span>
                                 </td>
-                                <td className="py-6 text-slate-500 text-xs font-medium italic max-w-[200px] truncate">{booking.notes || 'No notes'}</td>
+                                <td className="py-6 text-slate-500 text-xs font-medium italic max-w-[200px] truncate">{booking.description || 'No notes'}</td>
                               </motion.tr>
                             ))
                         ) : (
@@ -678,7 +751,7 @@ export function PractitionerDashboard() {
                         <tbody className="divide-y divide-slate-50">
                           {bookingRequests
                             .slice()
-                            .sort((a, b) => new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime())
+                            .sort((a, b) => new Date(b.sessionDate).getTime() - new Date(a.sessionDate).getTime())
                             .map((request, idx) => (
                               <motion.tr
                                 key={request.id ?? idx}
@@ -698,7 +771,7 @@ export function PractitionerDashboard() {
                                   </div>
                                 </td>
                                 <td className="py-6 text-sm font-bold text-slate-600">
-                                  {formatDateToIndian(request.bookingDate)}
+                                  {formatDateToIndian(request.sessionDate)}
                                 </td>
                                 <td className="py-6 text-sm font-bold text-slate-600">
                                   {request.startTime ? request.startTime : 'N/A'}
@@ -714,7 +787,7 @@ export function PractitionerDashboard() {
                                   )}
                                 </td>
                                 <td className="py-6 text-slate-500 text-xs font-medium max-w-[200px] truncate">
-                                  {request.notes || 'No description provided'}
+                                  {request.description || 'No description provided'}
                                 </td>
                                 <td className="py-6 pr-4 text-right">
                                   <div className="flex justify-end gap-2">
@@ -876,7 +949,7 @@ export function PractitionerDashboard() {
                               return s === 'Completed' || s === 'Not Completed' || s === 'Cancelled' || s === 'Rejected' || s === 'Refunded';
                             })
                             .slice()
-                            .sort((a, b) => new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime())
+                            .sort((a, b) => new Date(b.sessionDate).getTime() - new Date(a.sessionDate).getTime())
                             .map((booking, idx) => {
                               const status = getSessionStatus(booking)
                               return (
@@ -897,7 +970,7 @@ export function PractitionerDashboard() {
                                       )}
                                     </div>
                                   </td>
-                                  <td className="py-4 text-xs font-bold text-slate-900">{formatDateToIndian(booking.bookingDate)}</td>
+                                  <td className="py-4 text-xs font-bold text-slate-900">{formatDateToIndian(booking.sessionDate)}</td>
                                   <td className="py-4 text-xs font-bold text-slate-600">
                                     {booking.startTime || 'N/A'}
                                     {booking.duration && <span className="block text-[10px] text-slate-400 font-medium">{booking.duration} mins</span>}
@@ -917,9 +990,9 @@ export function PractitionerDashboard() {
                                     </span>
                                   </td>
                                   <td className="py-4 text-[11px] text-slate-500 max-w-xs space-y-1">
-                                    {booking.notes && <p><span className="font-bold text-slate-400 uppercase tracking-tighter text-[8px]">Patient:</span> {booking.notes}</p>}
-                                    {booking.practitionerComment && <p><span className="font-bold text-brand-400 uppercase tracking-tighter text-[8px]">You:</span> {booking.practitionerComment}</p>}
-                                    {!booking.notes && !booking.practitionerComment && <span className="italic">-</span>}
+                                    {booking.description && <p><span className="font-bold text-slate-400 uppercase tracking-tighter text-[8px]">Patient:</span> {booking.description}</p>}
+                                    {booking.providerMessage && <p><span className="font-bold text-brand-400 uppercase tracking-tighter text-[8px]">You:</span> {booking.providerMessage}</p>}
+                                    {!booking.description && !booking.providerMessage && <span className="italic">-</span>}
                                   </td>
                                   <td className="py-4 pr-4 text-right">
                                     {booking.status !== 'COMPLETED' && booking.status !== 'NOT_COMPLETED' && status === 'Completed' && (
@@ -974,35 +1047,6 @@ export function PractitionerDashboard() {
 
             {/* Calendar Tab */}
             {activeTab === 'calendar' && (() => {
-              // Map bookings (ACCEPTED / RESCHEDULED / CONFIRMED) into the shape SessionCalendar expects.
-              // bookingDate from the DB is an ISO LocalDateTime string; we split it into a local
-              // YYYY-MM-DD date key plus HH:mm start/end times so the calendar renders correctly.
-              const calendarSessions: SessionBooking[] = bookings
-                .filter((b) => b.status === 'ACCEPTED' || b.status === 'RESCHEDULED' || b.status === 'CONFIRMED')
-                .map((b) => {
-                  const dt = b.bookingDate ? new Date(b.bookingDate) : new Date()
-                  const year = dt.getFullYear()
-                  const month = String(dt.getMonth() + 1).padStart(2, '0')
-                  const day = String(dt.getDate()).padStart(2, '0')
-                  const hh = String(dt.getHours()).padStart(2, '0')
-                  const mm = String(dt.getMinutes()).padStart(2, '0')
-                  const endDt = new Date(dt.getTime() + 60 * 60 * 1000) // default 1-hour slot
-                  const ehh = String(endDt.getHours()).padStart(2, '0')
-                  const emm = String(endDt.getMinutes()).padStart(2, '0')
-                  return {
-                    id: b.id,
-                    clientId: b.userId ?? 0,
-                    clientName: b.clientName ?? 'Client',
-                    providerId: profile?.id ?? 0,
-                    providerName: profile?.name ?? '',
-                    sessionDate: `${year}-${month}-${day}`,
-                    startTime: `${hh}:${mm}`,
-                    endTime: b.endTime || `${ehh}:${emm}`,
-                    duration: b.duration || 60,
-                    issueDescription: b.notes ?? '',
-                    status: 'ACCEPTED' as const,
-                  }
-                })
               return (
                 <motion.div key="calendar" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
                   <motion.header
@@ -1015,26 +1059,224 @@ export function PractitionerDashboard() {
                         Session <span className="text-white/80">Calendar</span>
                       </h2>
                       <p className="text-white/70 flex items-center gap-2 font-medium">
-                        <Calendar size={16} /> View your accepted and confirmed sessions.
+                        <Calendar size={16} /> All sessions — including completed and missed — shown by status.
                       </p>
                     </div>
                   </motion.header>
                   <section className="bg-white p-10 rounded-[3rem] border border-brand-100/50 shadow-xl shadow-brand-500/5">
-                    {calendarSessions.length === 0 ? (
-                      <div className="py-16 text-center">
-                        <div className="bg-slate-50 inline-block p-8 rounded-full mb-6 border border-slate-100">
-                          <Calendar size={40} className="text-slate-300" />
-                        </div>
-                        <p className="text-slate-400 font-black uppercase tracking-widest text-xs">No accepted bookings</p>
-                        <p className="text-slate-500 text-sm mt-2 font-medium">Accept booking requests to see them on your calendar.</p>
-                      </div>
-                    ) : (
-                      <SessionCalendar sessions={calendarSessions} role="patient" />
-                    )}
+                    <SessionCalendar
+                      sessions={calendarSessions}
+                      role="practitioner"
+                      availabilitySlots={availabilitySlots}
+                    />
                   </section>
                 </motion.div>
               )
             })()}
+
+            {/* Availability Management Tab */}
+            {activeTab === 'availability' as any && (
+              <motion.div key="availability" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-10">
+                <motion.header
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-gradient-to-r from-emerald-500 to-teal-600 p-10 rounded-[2.5rem] shadow-xl shadow-emerald-500/20 text-white mb-8"
+                >
+                  <div>
+                    <h2 className="text-3xl md:text-4xl font-black tracking-tight mb-2">
+                      Availability <span className="text-white/80">Schedule</span>
+                    </h2>
+                    <p className="text-white/70 flex items-center gap-2 font-medium">
+                      <Activity size={16} /> Define your recurring weekly hours and specific date overrides.
+                    </p>
+                  </div>
+                </motion.header>
+
+                {/* Weekly Schedule Section */}
+                <section className="bg-white p-10 rounded-[3rem] border border-brand-100/50 shadow-xl shadow-brand-500/5">
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
+                    <div>
+                      <h3 className="text-3xl font-black text-slate-900 mb-2 flex items-center gap-3">
+                        <Activity size={28} className="text-brand-600" /> Weekly Schedule
+                      </h3>
+                      <p className="text-slate-500 font-medium tracking-tight">Set your recurring availability for each day of the week.</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+                    <div className="space-y-6">
+                      <div className="bg-slate-50 p-8 rounded-[2rem] border border-slate-100">
+                        <h4 className="text-sm font-black text-slate-900 mb-6 uppercase tracking-widest">Add Weekly Slot</h4>
+                        <div className="space-y-5">
+                          <div>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4 mb-2 block">Day of Week</label>
+                            <select
+                              value={weeklyDay}
+                              onChange={(e) => setWeeklyDay(e.target.value as any)}
+                              className="w-full bg-white border border-slate-200 rounded-2xl py-3 px-5 text-sm font-bold text-slate-900 focus:border-brand-400 focus:outline-none transition-all"
+                            >
+                              {['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'].map(d => (
+                                <option key={d} value={d}>{d}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4 mb-2 block">Start Time</label>
+                              <input
+                                type="time"
+                                value={weeklyStart}
+                                onChange={(e) => setWeeklyStart(e.target.value)}
+                                className="w-full bg-white border border-slate-200 rounded-2xl py-3 px-5 text-sm font-bold text-slate-900 focus:border-brand-400 focus:outline-none transition-all"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4 mb-2 block">End Time</label>
+                              <input
+                                type="time"
+                                value={weeklyEnd}
+                                onChange={(e) => setWeeklyEnd(e.target.value)}
+                                className="w-full bg-white border border-slate-200 rounded-2xl py-3 px-5 text-sm font-bold text-slate-900 focus:border-brand-400 focus:outline-none transition-all"
+                              />
+                            </div>
+                          </div>
+                          <button
+                            onClick={addWeeklySlot}
+                            disabled={weeklyLoading}
+                            className="w-full bg-brand-600 hover:bg-brand-700 text-white font-black py-4 rounded-2xl shadow-lg shadow-brand-600/20 transition-all active:scale-95 disabled:opacity-50"
+                          >
+                            {weeklyLoading ? 'Adding...' : 'Add Recurring Slot'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="lg:col-span-2">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'].map(day => {
+                          const slotsForDay = weeklyAvailability.filter(s => s.dayOfWeek === day);
+                          return (
+                            <div key={day} className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100 flex flex-col h-full">
+                              <div className="flex items-center justify-between mb-4">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{day}</span>
+                                <span className={`w-2 h-2 rounded-full ${slotsForDay.length > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
+                              </div>
+                              <div className="space-y-2 flex-grow">
+                                {slotsForDay.length > 0 ? (
+                                  slotsForDay.map(slot => (
+                                    <div key={slot.id} className="bg-white p-3 rounded-xl border border-slate-100 flex items-center justify-between group shadow-sm">
+                                      <span className="text-xs font-bold text-slate-700">{slot.startTime} – {slot.endTime}</span>
+                                      <button
+                                        onClick={() => deleteWeeklySlot(slot.id)}
+                                        className="text-slate-300 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100"
+                                      >
+                                        <XCircle size={14} />
+                                      </button>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <p className="text-[10px] font-medium text-slate-400 italic py-2">No hours set</p>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Specific Date Exceptions Section (Legacy/Overrides) */}
+                  <section className="bg-white p-8 rounded-[2.5rem] border border-brand-100/50 shadow-xl shadow-brand-500/5">
+                    <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center gap-3">
+                      <Calendar size={22} className="text-emerald-600" /> Specific Date Exceptions
+                    </h3>
+                    <div className="space-y-6">
+                      <p className="text-xs text-slate-500 font-medium">Use this to add one-off availability or specific overrides for a particular date.</p>
+                      <div className="grid grid-cols-1 gap-4">
+                        <div>
+                          <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4 mb-2 block">Choose Date</label>
+                          <input
+                            type="date"
+                            value={avDate}
+                            onChange={e => setAvDate(e.target.value)}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 px-5 text-sm font-bold text-slate-900 focus:border-emerald-400 focus:outline-none transition-all"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4 mb-2 block">Start</label>
+                            <input
+                              type="time"
+                              value={avStart}
+                              onChange={e => setAvStart(e.target.value)}
+                              className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 px-5 text-sm font-bold text-slate-900 focus:border-emerald-400 focus:outline-none transition-all"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4 mb-2 block">End</label>
+                            <input
+                              type="time"
+                              value={avEnd}
+                              onChange={e => setAvEnd(e.target.value)}
+                              className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 px-5 text-sm font-bold text-slate-900 focus:border-emerald-400 focus:outline-none transition-all"
+                            />
+                          </div>
+                        </div>
+                        <button
+                          onClick={addAvailabilitySlot}
+                          disabled={avLoading}
+                          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-2xl shadow-lg transition-all active:scale-95 disabled:opacity-50"
+                        >
+                          {avLoading ? 'Adding...' : 'Add Specific Date slot'}
+                        </button>
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* Existing Overrides List */}
+                  <section className="bg-white p-8 rounded-[2.5rem] border border-brand-100/50 shadow-xl shadow-brand-500/5">
+                    <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center justify-between">
+                      <span className="flex items-center gap-3"><Calendar size={22} className="text-slate-400" /> Active Overrides</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{availabilitySlots.length} items</span>
+                    </h3>
+                    {availabilitySlots.length === 0 ? (
+                      <div className="py-12 text-center">
+                        <Calendar size={36} className="mx-auto text-slate-200 mb-4" />
+                        <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">No exceptions set</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                        {availabilitySlots
+                          .slice()
+                          .sort((a, b) => String(a.availableDate).localeCompare(String(b.availableDate)))
+                          .map((slot) => (
+                            <div key={slot.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 group">
+                              <div>
+                                <p className="text-xs font-black text-slate-900">{formatDateToIndian(slot.availableDate)}</p>
+                                <p className="text-[10px] font-bold text-slate-500">{slot.startTime} – {slot.endTime}</p>
+                              </div>
+                              <button
+                                onClick={() => deleteAvailabilitySlot(slot.id)}
+                                className="p-2 text-slate-300 hover:text-rose-500 transition-colors"
+                              >
+                                <XCircle size={16} />
+                              </button>
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                  </section>
+                </div>
+
+                {avMessage && (
+                  <div className={`p-4 rounded-2xl text-xs font-black text-center ${avMessage.includes('Failed') ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                    {avMessage}
+                  </div>
+                )}
+              </motion.div>
+            )}
 
             {/* Profile Tab */}
             {activeTab === 'profile' && (
@@ -1234,6 +1476,88 @@ export function PractitionerDashboard() {
                 </section>
               </motion.div>
             )}
+
+            {activeTab === 'products' && (
+              <motion.div key="products" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+                <section className="bg-white p-10 rounded-[3rem] border border-brand-100/50 shadow-xl shadow-brand-500/5">
+                  <div className="flex items-center justify-between mb-10">
+                    <h3 className="text-2xl font-black flex items-center gap-3 text-slate-900">
+                      <Package size={24} className="text-brand-600" /> My Products
+                    </h3>
+                    <button
+                      onClick={() => window.location.href = '/my-products'}
+                      className="bg-brand-600 text-white px-8 py-4 rounded-2xl font-black text-sm shadow-lg shadow-brand-600/20 hover:scale-105 transition-all flex items-center gap-2"
+                    >
+                      <Plus size={18} /> Add New
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {products.length > 0 ? (
+                      products.map((p, idx) => (
+                        <motion.div
+                          key={p.productId}
+                          initial={{ opacity: 0, y: 15 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: idx * 0.05 }}
+                          className="bg-slate-50/50 rounded-[2rem] border border-slate-100 overflow-hidden group hover:border-brand-300 transition-all flex flex-col"
+                        >
+                          <div className="h-40 bg-slate-100 relative overflow-hidden">
+                            {p.imageUrl ? (
+                              <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-slate-300">
+                                <Package size={40} />
+                              </div>
+                            )}
+                            <div className="absolute top-4 right-4">
+                              <span className="bg-white/90 backdrop-blur text-brand-600 px-3 py-1 rounded-xl font-black text-[10px] shadow-sm">
+                                ₹ {p.price}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="p-6 flex-1 flex flex-col">
+                            <h4 className="font-black text-slate-900 mb-1 truncate">{p.name}</h4>
+                            <p className="text-slate-500 text-[10px] font-medium line-clamp-2 mb-4">{p.description}</p>
+                            <div className="mt-auto flex gap-2">
+                              <button
+                                onClick={() => window.location.href = `/my-products/${p.productId}`}
+                                className="flex-1 bg-white text-slate-900 py-3 rounded-xl font-black text-xs flex items-center justify-center gap-2 border border-slate-100 hover:bg-slate-50 transition-all"
+                              >
+                                <Edit2 size={14} /> Manage
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  if (window.confirm('Delete this product?')) {
+                                    try {
+                                      await api.deleteProduct(p.productId!, profile!.id);
+                                      setProducts(prev => prev.filter(x => x.productId !== p.productId));
+                                      setMessage('Product deleted');
+                                      setTimeout(() => setMessage(''), 3000);
+                                    } catch (err) {
+                                      console.error(err);
+                                      setMessage('Failed to delete');
+                                    }
+                                  }
+                                }}
+                                className="bg-rose-50 text-rose-600 px-4 py-3 rounded-xl font-black hover:bg-rose-100 transition-all"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))
+                    ) : (
+                      <div className="col-span-full py-16 text-center">
+                        <Package size={40} className="mx-auto text-slate-200 mb-4" />
+                        <p className="text-slate-400 font-black uppercase tracking-widest text-[10px]">No products listed yet</p>
+                      </div>
+                    )}
+                  </div>
+                </section>
+              </motion.div>
+            )}
           </AnimatePresence>
 
           {/* Toast Message */}
@@ -1248,7 +1572,7 @@ export function PractitionerDashboard() {
             </motion.div>
           )}
         </div>
-      </DashboardLayout>
+      </DashboardLayout >
     </>
   );
 }

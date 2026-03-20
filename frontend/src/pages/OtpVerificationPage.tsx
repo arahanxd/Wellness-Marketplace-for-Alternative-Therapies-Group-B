@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowRight, RefreshCw, ShieldCheck } from 'lucide-react'
-import { api } from '../api/api'
+import { api } from '../api'
 
 export function OtpVerificationPage() {
     const navigate = useNavigate()

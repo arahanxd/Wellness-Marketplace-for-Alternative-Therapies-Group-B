@@ -2,12 +2,15 @@ package com.wellness.backend.controller;
 
 import com.wellness.backend.dto.BookingRequestDTO;
 import com.wellness.backend.dto.BookingResponseDTO;
-import com.wellness.backend.model.BookingStatus;
+import com.wellness.backend.dto.SessionRescheduleRequestDTO;
 import com.wellness.backend.service.BookingService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal;
 import java.util.List;
 
 @RestController
@@ -18,85 +21,67 @@ public class BookingController {
 
     private final BookingService bookingService;
 
-    @GetMapping("/user/{userId}")
-    public ResponseEntity<List<BookingResponseDTO>> getUserBookings(@PathVariable Long userId) {
-        return ResponseEntity.ok(bookingService.getClientUpcomingBookings(userId));
+    @PostMapping("/book")
+    @PreAuthorize("hasRole('CLIENT')")
+    public ResponseEntity<BookingResponseDTO> bookSession(
+            Principal principal,
+            @Valid @RequestBody BookingRequestDTO request) {
+        return ResponseEntity.ok(bookingService.bookSession(principal.getName(), request));
     }
 
-    @GetMapping("/user/{userId}/history")
-    public ResponseEntity<List<BookingResponseDTO>> getUserBookingHistory(@PathVariable Long userId) {
-        return ResponseEntity.ok(bookingService.getClientHistory(userId));
-    }
-
-    /**
-     * Patient Calendar: returns only ACCEPTED / CONFIRMED / RESCHEDULED bookings
-     */
-    @GetMapping("/user/{userId}/calendar")
-    public ResponseEntity<List<BookingResponseDTO>> getClientCalendarBookings(@PathVariable Long userId) {
-        return ResponseEntity.ok(bookingService.getClientCalendarBookings(userId));
-    }
-
-    @PostMapping
-    public ResponseEntity<BookingResponseDTO> createBooking(@RequestBody BookingRequestDTO request) {
-        return ResponseEntity.ok(bookingService.createBooking(request));
+    @GetMapping("/provider/{providerId}")
+    @PreAuthorize("hasRole('PROVIDER')")
+    public ResponseEntity<List<BookingResponseDTO>> getSessionsForProvider(@PathVariable Long providerId) {
+        return ResponseEntity.ok(bookingService.getSessionsForProvider(providerId));
     }
 
     @GetMapping("/client/{clientId}")
-    public ResponseEntity<List<BookingResponseDTO>> getClientUpcomingBookings(@PathVariable Long clientId) {
-        return ResponseEntity.ok(bookingService.getClientUpcomingBookings(clientId));
-    }
-
-    @GetMapping("/practitioner/{practitionerId}/history")
-    public ResponseEntity<List<BookingResponseDTO>> getPractitionerHistory(@PathVariable Long practitionerId) {
-        return ResponseEntity.ok(bookingService.getPractitionerHistory(practitionerId));
-    }
-
-    @GetMapping("/practitioner/{practitionerId}")
-    public ResponseEntity<List<BookingResponseDTO>> getPractitionerUpcomingBookings(
-            @PathVariable Long practitionerId,
-            @RequestParam(name = "status", required = false) BookingStatus status) {
-        if (status != null) {
-            return ResponseEntity.ok(bookingService.getPractitionerBookingsByStatus(practitionerId, status));
-        }
-        return ResponseEntity.ok(bookingService.getPractitionerUpcomingBookings(practitionerId));
+    @PreAuthorize("hasRole('CLIENT')")
+    public ResponseEntity<List<BookingResponseDTO>> getSessionsForClient(@PathVariable Long clientId) {
+        return ResponseEntity.ok(bookingService.getSessionsForClient(clientId));
     }
 
     @PutMapping("/{id}/accept")
+    @PreAuthorize("hasRole('PROVIDER')")
     public ResponseEntity<BookingResponseDTO> acceptBooking(@PathVariable Long id) {
         return ResponseEntity.ok(bookingService.acceptBooking(id));
     }
 
     @PutMapping("/{id}/reject")
-    public ResponseEntity<BookingResponseDTO> rejectBooking(@PathVariable Long id) {
-        return ResponseEntity.ok(bookingService.rejectBooking(id));
+    @PreAuthorize("hasRole('PROVIDER')")
+    public ResponseEntity<BookingResponseDTO> rejectBooking(@PathVariable Long id, Principal principal) {
+        return ResponseEntity.ok(bookingService.rejectBooking(id, principal.getName()));
     }
 
     @PutMapping("/{id}/reschedule")
+    @PreAuthorize("hasRole('PROVIDER')")
     public ResponseEntity<BookingResponseDTO> rescheduleBooking(
             @PathVariable Long id,
-            @RequestBody java.util.Map<String, String> data) {
-        String newSessionDate = data.get("newSessionDate");
-        String newStartTime = data.get("newStartTime");
-        return ResponseEntity.ok(bookingService.rescheduleBooking(id, newSessionDate, newStartTime));
+            Principal principal,
+            @RequestBody SessionRescheduleRequestDTO body) {
+        return ResponseEntity.ok(bookingService.rescheduleBooking(id, principal.getName(), body));
+    }
+
+    @PutMapping("/{id}/confirm-reschedule")
+    @PreAuthorize("hasRole('CLIENT')")
+    public ResponseEntity<BookingResponseDTO> confirmReschedule(@PathVariable Long id, Principal principal) {
+        return ResponseEntity.ok(bookingService.confirmReschedule(id, principal.getName()));
     }
 
     @PutMapping("/{id}/complete")
-    public ResponseEntity<BookingResponseDTO> completeBooking(@PathVariable Long id) {
-        return ResponseEntity.ok(bookingService.completeBooking(id));
-    }
-
-    @PutMapping("/{id}/cancel")
-    public ResponseEntity<BookingResponseDTO> cancelBooking(@PathVariable Long id, java.security.Principal principal) {
-        return ResponseEntity.ok(bookingService.cancelBooking(id, principal.getName()));
+    @PreAuthorize("hasRole('PROVIDER')")
+    public ResponseEntity<BookingResponseDTO> completeBooking(@PathVariable Long id, Principal principal) {
+        return ResponseEntity.ok(bookingService.completeBooking(id, principal.getName()));
     }
 
     @PutMapping("/{id}/not-complete")
-    public ResponseEntity<BookingResponseDTO> markBookingNotCompleted(@PathVariable Long id) {
-        return ResponseEntity.ok(bookingService.markBookingNotCompleted(id));
+    @PreAuthorize("hasRole('PROVIDER')")
+    public ResponseEntity<BookingResponseDTO> markNotCompleted(@PathVariable Long id, Principal principal) {
+        return ResponseEntity.ok(bookingService.markNotCompleted(id, principal.getName()));
     }
 
-    @PutMapping("/{id}/accept-reschedule")
-    public ResponseEntity<BookingResponseDTO> acceptReschedule(@PathVariable Long id) {
-        return ResponseEntity.ok(bookingService.acceptReschedule(id));
+    @PutMapping("/{id}/cancel")
+    public ResponseEntity<BookingResponseDTO> cancelSession(@PathVariable Long id, Principal principal) {
+        return ResponseEntity.ok(bookingService.cancelBooking(id, principal.getName()));
     }
 }

@@ -40,12 +40,24 @@ public class OrderEntity {
     @Column(name = "delivery_status")
     private String deliveryStatus;
 
+    @Column(name = "shipping_name")
+    private String shippingName;
+
+    @Column(name = "shipping_address", columnDefinition = "TEXT")
+    private String shippingAddress;
+
+    @Column(name = "shipping_phone")
+    private String shippingPhone;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "patient_id")
     private UserEntity patient;
 
-    @Column(nullable = false)
+    @Column(name = "status", nullable = false)
     private String status;
+
+    @Column(name = "common_order_id")
+    private String commonOrderId;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { DashboardLayout } from '../components/DashboardLayout'
-import { api, type Profile } from '../api/api'
+import { api, type Profile } from '../api'
 import {
   ShieldCheck, UserCheck, UserX, FileText, LayoutDashboard, Settings,
   Activity, CheckCircle2, XCircle, RefreshCw, MessageSquare, AlertTriangle
@@ -88,7 +88,9 @@ export function AdminDashboard() {
   const sidebarItems = [
     { label: 'Overview', onClick: () => setActiveTab('overview'), active: activeTab === 'overview', icon: <LayoutDashboard size={20} /> },
     { label: 'All Users', onClick: () => setActiveTab('users'), active: activeTab === 'users', icon: <UserCheck size={20} /> },
+    { label: 'Flagged Content', path: '/admin/reports', icon: <AlertTriangle size={20} /> },
     { label: 'Settings', path: '#', icon: <Settings size={20} /> },
+    { label: 'Community Forum', path: '/forum', icon: <MessageSquare size={20} /> },
   ]
 
   const stats = [
@@ -139,7 +141,7 @@ export function AdminDashboard() {
           ))}
         </div>
 
-        <AnimatePresence mode="wait">
+        <AnimatePresence>
           {/* Overview Tab — Practitioners */}
           {activeTab === 'overview' && (
             <motion.div key="overview" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
@@ -166,8 +168,8 @@ export function AdminDashboard() {
                     <p className="text-sm font-black text-slate-400 uppercase tracking-widest">No practitioners found</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 gap-4">
-                    {practitioners.map((p, idx) => (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    {practitioners.filter(p => p.verificationStatus === 'PENDING' || p.verificationStatus === 'REUPLOAD_REQUESTED' || p.verificationStatus === 'PENDING_ADMIN_APPROVAL').map((p, idx) => (
                       <motion.div
                         key={p.id}
                         initial={{ opacity: 0, x: -20 }}
@@ -279,16 +281,16 @@ export function AdminDashboard() {
                           <td className="py-4 text-sm text-slate-500">{user.email}</td>
                           <td className="py-4">
                             <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${user.role === 'PROVIDER'
-                                ? 'bg-violet-50 text-violet-700 border-violet-200'
-                                : 'bg-sky-50 text-sky-700 border-sky-200'
+                              ? 'bg-violet-50 text-violet-700 border-violet-200'
+                              : 'bg-sky-50 text-sky-700 border-sky-200'
                               }`}>
                               {user.role === 'PROVIDER' ? 'Practitioner' : 'Patient'}
                             </span>
                           </td>
                           <td className="py-4">
                             <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border ${user.emailVerified
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                : 'bg-rose-50 text-rose-700 border-rose-200'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : 'bg-rose-50 text-rose-700 border-rose-200'
                               }`}>
                               {user.emailVerified ? 'Verified' : 'Pending'}
                             </span>
@@ -325,7 +327,7 @@ export function AdminDashboard() {
               className="relative bg-white rounded-[2rem] p-8 w-full max-w-md shadow-2xl border border-slate-100"
             >
               <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-6 ${pendingAction.type === 'APPROVE' ? 'bg-emerald-50' :
-                  pendingAction.type === 'REJECT' ? 'bg-rose-50' : 'bg-orange-50'
+                pendingAction.type === 'REJECT' ? 'bg-rose-50' : 'bg-orange-50'
                 }`}>
                 {pendingAction.type === 'APPROVE' && <UserCheck size={28} className="text-emerald-600" />}
                 {pendingAction.type === 'REJECT' && <UserX size={28} className="text-rose-600" />}
@@ -381,8 +383,8 @@ export function AdminDashboard() {
                   onClick={handleAction}
                   disabled={processingId === pendingAction.id}
                   className={`flex-1 text-white py-3 rounded-2xl font-black transition-all shadow-lg disabled:opacity-50 ${pendingAction.type === 'APPROVE' ? 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/20' :
-                      pendingAction.type === 'REJECT' ? 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/20' :
-                        'bg-orange-500 hover:bg-orange-600 shadow-orange-500/20'
+                    pendingAction.type === 'REJECT' ? 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/20' :
+                      'bg-orange-500 hover:bg-orange-600 shadow-orange-500/20'
                     }`}
                 >
                   {processingId === pendingAction.id ? 'Processing...' :

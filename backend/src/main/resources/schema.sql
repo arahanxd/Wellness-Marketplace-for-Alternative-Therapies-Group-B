@@ -141,3 +141,21 @@ ON notifications(recipient_id, is_read);
 
 CREATE INDEX idx_notification_recipient_created 
 ON notifications(recipient_id, created_at);
+ 
+ -- Reports table
+ CREATE TABLE IF NOT EXISTS reports (
+     report_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+     reporter_id BIGINT NOT NULL,
+     reported_by_user_id BIGINT NOT NULL,
+     reported_entity_id BIGINT NOT NULL,
+     entity_type VARCHAR(50) NOT NULL,
+     reason VARCHAR(50) NOT NULL,
+     status VARCHAR(20) DEFAULT 'PENDING',
+     comment TEXT,
+     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+     FOREIGN KEY (reporter_id) REFERENCES users(id),
+     FOREIGN KEY (reported_by_user_id) REFERENCES users(id)
+ );
+ 
+ CREATE INDEX idx_report_status ON reports(status);
+ CREATE INDEX idx_report_entity ON reports(entity_type, reported_entity_id);

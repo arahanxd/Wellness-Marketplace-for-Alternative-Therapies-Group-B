@@ -1,25 +1,35 @@
 import { useEffect, useState } from 'react';
-import { api, type Profile, type Booking, type BookingRequest } from '../api';
+import { useNavigate } from 'react-router-dom';
+import { api, type Profile, type Booking, type AvailabilitySlot } from '../api';
 import { formatImageUrl } from '../utils/image';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Compass, LayoutDashboard, Calendar, CheckCircle2, Star, MapPin,
-    Search, Sparkles, X, Activity
+    Search, Sparkles, X, Activity, MessageSquare, Flag, ArrowLeft, Shield
 } from 'lucide-react';
+import { ReportModal } from '../components/ReportModal';
 
 export function MarketplacePage() {
     const [practitioners, setPractitioners] = useState<Profile[]>([]);
     const [profile, setProfile] = useState<Profile | null>(null);
+    const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState('');
     const [bookingPractitioner, setBookingPractitioner] = useState<Profile | null>(null);
-    const [bookingNotes, setBookingNotes] = useState('');
-    const [bookingDate, setBookingDate] = useState('');
+    const [bookingDescription, setBookingDescription] = useState('');
+    const [sessionDate, setSessionDate] = useState('');
     const [selectedSlot, setSelectedSlot] = useState<{ start: string; end: string } | null>(null);
     const [practitionerBookings, setPractitionerBookings] = useState<Booking[]>([]);
     const [loading, setLoading] = useState(false);
     const [fetchLoading, setFetchLoading] = useState(true);
     const [message, setMessage] = useState('');
+    const [availabilitySlots, setAvailabilitySlots] = useState<AvailabilitySlot[]>([]);
+    const [reportConfig, setReportConfig] = useState<{ entityType: string; entityId: number } | null>(null);
+
+    // Read-only logic for Admin Reports
+    const queryParams = new URLSearchParams(window.location.search)
+    const isReadOnly = queryParams.get('readOnly') === 'true'
+    const fromReports = queryParams.get('fromReports') === 'true'
 
     useEffect(() => { fetchData(); }, []);
 
@@ -44,11 +54,16 @@ export function MarketplacePage() {
 
     const fetchPractitionerBookings = async (practitionerId: number) => {
         try {
-            const existing = await api.getPractitionerBookings(practitionerId);
+            const [existing, availability] = await Promise.all([
+                api.getPractitionerBookings(practitionerId),
+                api.getProviderAvailability(practitionerId)
+            ]);
             setPractitionerBookings(existing);
+            setAvailabilitySlots(availability);
         } catch (err) {
             console.error(err);
             setPractitionerBookings([]);
+            setAvailabilitySlots([]);
         }
     };
 
@@ -77,37 +92,68 @@ export function MarketplacePage() {
 
     const handleBook = async () => {
         if (!bookingPractitioner || !profile) return;
-        if (!bookingDate || !selectedSlot) {
+        if (!sessionDate || !selectedSlot) {
             setMessage('Please select a date and time slot.');
             setTimeout(() => setMessage(''), 4000);
             return;
         }
         setLoading(true);
         try {
-            const selectedDateTime = `${bookingDate}T${selectedSlot.start}`;
-            const bookingData: BookingRequest = {
-                userId: profile.id,
-                practitionerId: bookingPractitioner.id,
-                bookingDate: new Date(selectedDateTime).toISOString(),
-                notes: bookingNotes
-            };
-            await api.createBooking(bookingData);
-            setMessage(`Successfully requested booking with ${bookingPractitioner.name}`);
+            // Calculate duration in minutes from selected slot
+            const [startH, startM] = selectedSlot.start.split(':').map(Number);
+            const [endH, endM] = selectedSlot.end.split(':').map(Number);
+            const duration = (endH * 60 + endM) - (startH * 60 + startM);
+
+            await api.bookSession({
+                providerId: bookingPractitioner.id,
+                sessionDate: sessionDate,
+                startTime: selectedSlot.start,
+                endTime: selectedSlot.end,
+                duration,
+                description: bookingDescription || 'Session booking request'
+            });
+            setMessage(`Booking request sent to ${bookingPractitioner.name}. They will confirm shortly.`);
             setBookingPractitioner(null);
-            setBookingNotes('');
-            setBookingDate('');
+            setBookingDescription('');
+            setSessionDate('');
             setSelectedSlot(null);
-            setTimeout(() => setMessage(''), 4000);
+            setTimeout(() => setMessage(''), 5000);
         } catch (err: any) {
             console.error(err);
             if (err.response?.status === 409) {
                 setMessage('This time slot is already booked. Please select another time.');
+            } else if (err.response?.data?.message) {
+                setMessage(err.response.data.message);
             } else {
                 setMessage('Failed to book session. Please try again.');
             }
-            setTimeout(() => setMessage(''), 4000);
+            setTimeout(() => setMessage(''), 5000);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleReportClick = (practitionerId: number) => {
+        setReportConfig({ entityType: 'PRACTITIONER', entityId: practitionerId });
+    };
+
+    const handleReportSubmit = async (reason: string, comment: string) => {
+        if (!profile || !reportConfig) return;
+        try {
+            await api.reportContent({
+                reportedEntityId: reportConfig.entityId,
+                reporterId: profile.id,
+                reason,
+                comment,
+                entityType: 'PRACTITIONER'
+            });
+            setMessage('Report submitted. Thank you.');
+            setTimeout(() => setMessage(''), 3000);
+        } catch (err) {
+            setMessage('Failed to submit report.');
+            setTimeout(() => setMessage(''), 3000);
+        } finally {
+            setReportConfig(null);
         }
     };
 
@@ -118,9 +164,9 @@ export function MarketplacePage() {
 
     return (
         <DashboardLayout sidebarItems={[
-            { label: 'Marketplace', active: true, path: '/marketplace', icon: <Compass size={20} /> },
-            { label: 'My Dashboard', path: profile?.role === 'PROVIDER' ? '/practitioner' : '/user', icon: <LayoutDashboard size={20} /> },
-            { label: 'Booking History', path: '#', icon: <Calendar size={20} /> }
+        { label: 'Find my Practitioner', active: true, path: '/marketplace', icon: <Compass size={20} /> },
+        { label: 'My Dashboard', path: profile?.role === 'PROVIDER' ? '/practitioner' : '/user', icon: <LayoutDashboard size={20} /> },
+        { label: 'Community Forum', path: '/forum', icon: <MessageSquare size={20} /> },
         ]}>
             <div className="space-y-10 min-h-screen">
                 {/* Header */}
@@ -129,6 +175,14 @@ export function MarketplacePage() {
                     animate={{ opacity: 1, y: 0 }}
                     className="bg-gradient-to-r from-brand-600 via-violet-600 to-indigo-600 p-10 rounded-[2.5rem] shadow-xl text-white text-center"
                 >
+                    {fromReports && (
+                        <button
+                            onClick={() => navigate('/admin/reports')}
+                            className="bg-white/20 text-white px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest border border-white/40 mb-6 hover:bg-white/30 transition-all flex items-center gap-2 mx-auto"
+                        >
+                            <ArrowLeft size={14} /> Back to Flagged Content
+                        </button>
+                    )}
                     <span className="bg-white/20 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border border-white/20 mb-4 inline-block">
                         Verified Practitioners Only
                     </span>
@@ -217,17 +271,32 @@ export function MarketplacePage() {
                                         </p>
                                     </div>
 
-                                    <button
-                                        onClick={() => {
-                                            setBookingPractitioner(p);
-                                            setBookingDate('');
-                                            setSelectedSlot(null);
-                                            fetchPractitionerBookings(p.id);
-                                        }}
-                                        className="mt-auto w-full bg-brand-600 text-white font-black py-3.5 rounded-2xl hover:bg-brand-700 transition-all transform active:scale-95 shadow-lg shadow-brand-600/20"
-                                    >
-                                        Book Session
-                                    </button>
+                                    {!isReadOnly ? (
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => {
+                                                    setBookingPractitioner(p);
+                                                    setSessionDate('');
+                                                    setSelectedSlot(null);
+                                                    fetchPractitionerBookings(p.id);
+                                                }}
+                                                className="flex-1 bg-brand-600 text-white font-black py-3.5 rounded-2xl hover:bg-brand-700 transition-all transform active:scale-95 shadow-lg shadow-brand-600/20"
+                                            >
+                                                Book Session
+                                            </button>
+                                            <button
+                                                onClick={() => handleReportClick(p.id)}
+                                                className="p-3.5 rounded-2xl bg-slate-50 text-slate-400 hover:text-red-500 transition-all border border-slate-100 active:scale-95"
+                                                title="Report Practitioner"
+                                            >
+                                                <Flag size={20} />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 text-amber-700 font-black text-center text-xs flex items-center justify-center gap-2">
+                                            <Shield size={14} /> READ ONLY MODE
+                                        </div>
+                                    )}
                                 </div>
                             </motion.div>
                         ))}
@@ -284,37 +353,42 @@ export function MarketplacePage() {
                                                 type="date"
                                                 min={new Date().toISOString().split('T')[0]}
                                                 className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-slate-700 focus:outline-none focus:border-brand-400 font-medium"
-                                                value={bookingDate}
+                                                value={sessionDate}
                                                 onChange={(e) => {
-                                                    setBookingDate(e.target.value);
+                                                    setSessionDate(e.target.value);
                                                     setSelectedSlot(null);
                                                 }}
                                             />
                                         </div>
                                         <div>
                                             <label className="block text-xs font-black uppercase tracking-widest text-slate-400 mb-2">Select Time Slot</label>
-                                            {bookingDate ? (
+                                            {sessionDate ? (
                                                 <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
                                                     {slots.map((slot) => {
                                                         const isSelected =
                                                             selectedSlot?.start === slot.start && selectedSlot.end === slot.end;
 
-                                                        const slotDateTime = new Date(`${bookingDate}T${slot.start}`);
+                                                        const slotDateTime = new Date(`${sessionDate}T${slot.start}`);
                                                         const now = new Date();
                                                         const isPast = slotDateTime <= now;
 
                                                         const isBooked = practitionerBookings.some((b) => {
-                                                            if (!b.bookingDate) return false;
-                                                            const bDate = new Date(b.bookingDate);
-                                                            const bDateStr = bDate.toISOString().split('T')[0];
-                                                            const bTime = bDate.toISOString().slice(11, 16);
-                                                            const isSameDate = bDateStr === bookingDate;
-                                                            const isSameTime = bTime === slot.start;
-                                                            const isActiveStatus = b.status !== 'CANCELLED';
+                                                            if (!b.sessionDate) return false;
+                                                            // b.sessionDate is already YYYY-MM-DD from API
+                                                            const isSameDate = b.sessionDate === sessionDate;
+                                                            const isSameTime = b.startTime === slot.start;
+                                                            const isActiveStatus = b.status !== 'CANCELLED' && b.status !== 'REJECTED';
                                                             return isSameDate && isSameTime && isActiveStatus;
                                                         });
 
-                                                        const disabled = isPast || isBooked;
+                                                        // Check against availability slots for this date only
+                                                        const slotsForDate = availabilitySlots.filter(av => String(av.availableDate) === sessionDate);
+                                                        // If no availability defined for this date, all slots are open
+                                                        const isAvailable = slotsForDate.length === 0 || slotsForDate.some(av =>
+                                                            slot.start >= av.startTime && slot.end <= av.endTime
+                                                        );
+
+                                                        const disabled = isPast || isBooked || !isAvailable;
 
                                                         return (
                                                             <button
@@ -342,13 +416,13 @@ export function MarketplacePage() {
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-black uppercase tracking-widest text-slate-400 mb-2">Message / Notes</label>
-                                        <textarea
-                                            placeholder="Share what you hope to achieve in this session..."
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-slate-700 focus:outline-none focus:border-brand-400 min-h-[120px] resize-none font-medium"
-                                            value={bookingNotes}
-                                            onChange={(e) => setBookingNotes(e.target.value)}
-                                        />
+                                            <label className="block text-xs font-black uppercase tracking-widest text-slate-400 mb-2">Session Goals / Description</label>
+                                            <textarea
+                                                placeholder="Describe your issue or what you hope to achieve in this session..."
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-slate-700 focus:outline-none focus:border-brand-400 min-h-[120px] resize-none font-medium"
+                                                value={bookingDescription}
+                                                onChange={(e) => setBookingDescription(e.target.value)}
+                                            />
                                     </div>
 
                                     {!profile && (
@@ -382,6 +456,13 @@ export function MarketplacePage() {
                     </motion.div>
                 )}
             </div>
+
+            <ReportModal
+                isOpen={!!reportConfig}
+                onClose={() => setReportConfig(null)}
+                onConfirm={handleReportSubmit}
+                title="Report Practitioner"
+            />
         </DashboardLayout>
     );
 }

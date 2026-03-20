@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { TopNav } from '../components/TopNav'
-import { api } from '../api/api'
+import { api } from '../api'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Mail, Lock, ArrowRight, LogIn, Sparkles } from 'lucide-react'
 
@@ -25,6 +25,8 @@ export function LoginPage() {
       const response = await api.login({ email, password });
       localStorage.setItem('userName', response.name);
       localStorage.setItem('userEmail', email);
+      localStorage.setItem('userRole', response.role);
+      localStorage.setItem('accessToken', response.accessToken || '');
 
       if (!response.emailVerified) {
         navigate('/otp-verification', { state: { email } });

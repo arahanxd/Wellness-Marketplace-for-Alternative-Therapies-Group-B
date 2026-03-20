@@ -35,6 +35,8 @@ public class UserEntity {
     private String specialization;
     private String city;
     private String country;
+    private String address;
+    private String phoneNumber;
 
     @Column(name = "degree_file")
     private String degreeFile;
@@ -68,6 +70,15 @@ public class UserEntity {
 
     @Column(name = "session_fee", precision = 19, scale = 2)
     private java.math.BigDecimal sessionFee = java.math.BigDecimal.valueOf(500.0);
+
+    @Column(name = "saved_card_number")
+    private String savedCardNumber;
+
+    @Column(name = "saved_card_expiry")
+    private String savedCardExpiry;
+
+    @Column(name = "saved_card_holder")
+    private String savedCardHolder;
 
     public boolean isVerified() {
         return "VERIFIED".equalsIgnoreCase(this.verificationStatus) ||

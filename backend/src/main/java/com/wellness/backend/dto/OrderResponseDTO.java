@@ -14,11 +14,13 @@ import java.time.LocalDateTime;
 @Builder
 public class OrderResponseDTO {
     private Long orderId;
+    private Long productId;
     private String userEmail;
-    private String productName;
+    private String name;
     private Integer quantity;
     private BigDecimal totalPrice;
     private LocalDateTime orderDate;
     private String status;
     private String deliveryStatus;
+    private String commonOrderId;
 }

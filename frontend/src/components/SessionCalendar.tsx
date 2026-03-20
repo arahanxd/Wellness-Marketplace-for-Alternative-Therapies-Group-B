@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
-import type { SessionBooking } from '../api'
+import type { Booking, AvailabilitySlot } from '../api'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CheckCircle2, Clock, XCircle, AlertCircle } from 'lucide-react'
 
 interface SessionCalendarProps {
-  sessions: SessionBooking[]
+  sessions: Booking[]
   role: 'patient' | 'practitioner'
+  availabilitySlots?: AvailabilitySlot[]
   onDaySelect?: (date: string) => void
 }
 
@@ -28,7 +29,69 @@ function toLocalDateKey(raw: string): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-export function SessionCalendar({ sessions, role, onDaySelect }: SessionCalendarProps) {
+/** Returns human-friendly status label for a raw backend status string */
+function friendlyStatus(status: string): string {
+  switch (status) {
+    case 'PENDING': return 'Pending Approval'
+    case 'ACCEPTED': return 'Accepted'
+    case 'CONFIRMED': return 'Confirmed'
+    case 'RESCHEDULE_REQUESTED': return 'Reschedule Requested'
+    case 'REJECTED': return 'Rejected'
+    case 'COMPLETED': return 'Completed'
+    case 'NOT_COMPLETED': return 'Missed / Not Completed'
+    case 'CANCELLED': return 'Cancelled'
+    case 'PENDING_COMPLETION_ACTION': return 'Awaiting Completion'
+    default: return status
+  }
+}
+
+/** CSS classes for the status badge in the side panel */
+function statusBadgeClasses(status: string): string {
+  switch (status) {
+    case 'PENDING': return 'bg-amber-50 text-amber-700 border-amber-200'
+    case 'ACCEPTED':
+    case 'CONFIRMED': return 'bg-blue-50 text-blue-700 border-blue-200'
+    case 'RESCHEDULE_REQUESTED': return 'bg-sky-50 text-sky-700 border-sky-200'
+    case 'COMPLETED': return 'bg-emerald-50 text-emerald-700 border-emerald-200'
+    case 'PENDING_COMPLETION_ACTION': return 'bg-orange-50 text-orange-700 border-orange-200'
+    case 'NOT_COMPLETED': return 'bg-rose-50 text-rose-700 border-rose-200'
+    case 'CANCELLED':
+    case 'REJECTED': return 'bg-slate-100 text-slate-500 border-slate-200'
+    default: return 'bg-slate-50 text-slate-600 border-slate-200'
+  }
+}
+
+/**
+ * Determines the dominant colour for a calendar day cell.
+ * Priority: NOT_COMPLETED > PENDING_COMPLETION_ACTION > CONFIRMED/ACCEPTED > PENDING > COMPLETED > CANCELLED/REJECTED
+ */
+function getDayColor(statuses: string[]): string {
+  if (statuses.some(s => s === 'NOT_COMPLETED')) {
+    return 'bg-rose-100 text-rose-700 border-rose-300 hover:bg-rose-200/60'
+  }
+  if (statuses.some(s => s === 'PENDING_COMPLETION_ACTION')) {
+    return 'bg-orange-100 text-orange-700 border-orange-300 hover:bg-orange-200/60'
+  }
+  if (statuses.some(s => s === 'CONFIRMED' || s === 'ACCEPTED')) {
+    return 'bg-blue-100 text-blue-700 border-blue-300 hover:bg-blue-200/60'
+  }
+  if (statuses.some(s => s === 'RESCHEDULE_REQUESTED')) {
+    return 'bg-sky-100 text-sky-700 border-sky-300 hover:bg-sky-200/60'
+  }
+  if (statuses.some(s => s === 'PENDING')) {
+    return 'bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200/60 border-dashed'
+  }
+  if (statuses.every(s => s === 'COMPLETED')) {
+    return 'bg-emerald-100 text-emerald-700 border-emerald-300 hover:bg-emerald-200/60'
+  }
+  // Mixed completed + cancelled/rejected or all cancelled
+  if (statuses.some(s => s === 'COMPLETED')) {
+    return 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100/60'
+  }
+  return 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200/60'
+}
+
+export function SessionCalendar({ sessions, role, availabilitySlots = [], onDaySelect }: SessionCalendarProps) {
   // currentDate represents the first day of the currently viewed month
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
@@ -66,9 +129,21 @@ export function SessionCalendar({ sessions, role, onDaySelect }: SessionCalendar
     return map
   }, [sessions])
 
+  // Build a set of dates that have availability slots
+  const availabilityDates: Set<string> = useMemo(() => {
+    const s = new Set<string>()
+    availabilitySlots.forEach(slot => {
+      if (slot.availableDate) s.add(toLocalDateKey(String(slot.availableDate)))
+    })
+    return s
+  }, [availabilitySlots])
 
   const selectedSessions = selectedDate
     ? sessions.filter((s) => toLocalDateKey(String(s.sessionDate)) === selectedDate)
+    : []
+
+  const selectedAvailabilitySlots = selectedDate
+    ? availabilitySlots.filter(s => toLocalDateKey(String(s.availableDate)) === selectedDate)
     : []
 
   // Build "today" string the same way — local date, no timezone shift
@@ -130,31 +205,22 @@ export function SessionCalendar({ sessions, role, onDaySelect }: SessionCalendar
               const day = idx + 1
               const dateStr = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
               const info = daySessions[dateStr]
+              const hasAvailability = availabilityDates.has(dateStr)
               const isToday = dateStr === todayStr
               const isSelected = selectedDate === dateStr
 
               const baseClasses =
                 'relative flex flex-col items-center justify-center aspect-square rounded-2xl border text-xs font-bold cursor-pointer transition-all'
 
-              const isPast = dateStr < todayStr
-
               const getColor = () => {
-                if (!info || info.count === 0) {
-                  return 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-white hover:border-brand-200'
+                if (info && info.count > 0) {
+                  return getDayColor(info.statuses)
                 }
-
-                if (isPast) {
-                  const hasIssues = info.statuses.some(s => s === 'NOT_COMPLETED' || s === 'PENDING_COMPLETION_ACTION')
-                  if (hasIssues) {
-                    return 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100/50'
-                  }
-                  const allCompleted = info.statuses.every(s => s === 'COMPLETED')
-                  if (allCompleted) {
-                    return 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-white hover:border-brand-200'
-                  }
+                // No sessions on this day
+                if (role === 'practitioner' && hasAvailability) {
+                  return 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100/50'
                 }
-
-                return 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100/50'
+                return 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50 hover:border-brand-200'
               }
 
               const colorClasses = getColor()
@@ -177,24 +243,45 @@ export function SessionCalendar({ sessions, role, onDaySelect }: SessionCalendar
                   {info && info.count > 0 && (
                     <span className="text-[10px] font-black opacity-60">{info.count}</span>
                   )}
+                  {role === 'practitioner' && hasAvailability && (!info || info.count === 0) && (
+                    <span className="text-[8px] font-black opacity-50 leading-none">avail</span>
+                  )}
                 </button>
               )
             })}
           </div>
 
-          {/* Legend — same for both roles */}
-          <div className="mt-8 flex items-center gap-6 text-[10px] font-black uppercase tracking-widest text-slate-400 border-t border-slate-50 pt-6">
+          {/* Legend */}
+          <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 text-[10px] font-black uppercase tracking-widest text-slate-400 border-t border-slate-50 pt-6">
+            {role === 'practitioner' && (
+              <div className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+                <span>Available</span>
+              </div>
+            )}
             <div className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
-              <span>No sessions</span>
+              <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
+              <span>Pending</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-blue-400" />
+              <span>Confirmed</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" />
+              <span>Completed</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-orange-400" />
+              <span>Awaiting Completion</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 rounded-full bg-rose-400" />
-              <span>Session booked</span>
+              <span>Missed</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
-              <span>Action Required</span>
+              <span className="h-2.5 w-2.5 rounded-full bg-slate-300" />
+              <span>Cancelled</span>
             </div>
           </div>
         </div>
@@ -218,10 +305,26 @@ export function SessionCalendar({ sessions, role, onDaySelect }: SessionCalendar
             </span>
             {selectedDate && (
               <span className="px-3 py-1 bg-brand-50 text-brand-600 rounded-lg text-[10px] uppercase tracking-widest">
-                {selectedSessions.length} sessions
+                {selectedSessions.length} session{selectedSessions.length !== 1 ? 's' : ''}
               </span>
             )}
           </h3>
+
+          {/* Availability slots for day (practitioner only) */}
+          {role === 'practitioner' && selectedDate && selectedAvailabilitySlots.length > 0 && (
+            <div className="mb-4">
+              <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-2">Your Availability</p>
+              <div className="space-y-2">
+                {selectedAvailabilitySlots.map(slot => (
+                  <div key={slot.id} className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2">
+                    <Clock size={12} className="text-emerald-600 flex-shrink-0" />
+                    <span className="text-xs font-bold text-emerald-700">{slot.startTime} – {slot.endTime}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="flex-1 overflow-y-auto space-y-4">
             <AnimatePresence mode="wait">
               {!selectedDate ? (
@@ -259,10 +362,9 @@ export function SessionCalendar({ sessions, role, onDaySelect }: SessionCalendar
                           : s.providerName || `Provider #${s.providerId}`}
                       </span>
                       <span
-                        className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${s.status === 'ACCEPTED' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
-                          }`}
+                        className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest border ${statusBadgeClasses(s.status)}`}
                       >
-                        {s.status}
+                        {friendlyStatus(s.status)}
                       </span>
                     </div>
                     <p className="text-[11px] text-slate-600 font-bold mb-1">
@@ -272,8 +374,24 @@ export function SessionCalendar({ sessions, role, onDaySelect }: SessionCalendar
                       {s.startTime} – {s.endTime} · {s.duration} mins
                     </p>
                     <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed italic">
-                      {s.issueDescription || 'No description provided.'}
+                      {s.description || 'No description provided.'}
                     </p>
+                    {/* Status-specific icons */}
+                    {(s.status === 'COMPLETED') && (
+                      <div className="mt-2 flex items-center gap-1 text-emerald-600 text-[10px] font-black">
+                        <CheckCircle2 size={12} /> Session Completed
+                      </div>
+                    )}
+                    {(s.status === 'NOT_COMPLETED') && (
+                      <div className="mt-2 flex items-center gap-1 text-rose-600 text-[10px] font-black">
+                        <XCircle size={12} /> Missed / Not Completed
+                      </div>
+                    )}
+                    {(s.status === 'PENDING_COMPLETION_ACTION') && (
+                      <div className="mt-2 flex items-center gap-1 text-orange-600 text-[10px] font-black">
+                        <AlertCircle size={12} /> Awaiting Completion Action
+                      </div>
+                    )}
                     {s.providerMessage && (
                       <div className="mt-3 text-[10px] text-amber-700 bg-amber-50/50 border border-amber-100 rounded-2xl p-3">
                         <p className="font-black uppercase tracking-tighter mb-1 select-none opacity-50">Note from specialist</p>

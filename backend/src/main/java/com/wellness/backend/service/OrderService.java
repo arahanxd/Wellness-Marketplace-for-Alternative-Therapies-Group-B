@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.format.TextStyle;
 import java.util.LinkedHashMap;
@@ -52,7 +53,18 @@ public class OrderService {
                                 .orElseThrow(() -> new ResourceNotFoundException(
                                                 "Product not found: " + request.getProductId()));
 
-                BigDecimal totalPrice = product.getPrice().multiply(new BigDecimal(request.getQuantity()));
+                BigDecimal originalPrice = product.getPrice();
+                Integer discountPct = product.getDiscountPercentage();
+                BigDecimal discountedPrice = originalPrice;
+                
+                if (discountPct != null && discountPct > 0) {
+                    BigDecimal discountMultiplier = BigDecimal.ONE.subtract(
+                        new BigDecimal(discountPct).divide(new BigDecimal(100), 2, RoundingMode.HALF_UP)
+                    );
+                    discountedPrice = originalPrice.multiply(discountMultiplier);
+                }
+
+                BigDecimal totalPrice = discountedPrice.multiply(new BigDecimal(request.getQuantity()));
 
                 OrderEntity order = new OrderEntity();
                 order.setUser(user);
@@ -60,9 +72,18 @@ public class OrderService {
                 order.setQuantity(request.getQuantity());
                 order.setTotalPrice(totalPrice);
                 order.setOrderDate(LocalDateTime.now());
-                order.setStatus("PENDING");
-                order.setDeliveryStatus("PROCESSING");
+                order.setStatus("COMPLETED");
+                order.setDeliveryStatus("DELIVERED");
                 order.setPatient(user);
+
+                // Populate shipping details: use request if provided, otherwise default to user
+                // profile
+                order.setShippingName(request.getShippingName() != null ? request.getShippingName() : user.getName());
+                order.setShippingAddress(request.getShippingAddress() != null ? request.getShippingAddress()
+                                : user.getAddress());
+                order.setShippingPhone(request.getShippingPhone() != null ? request.getShippingPhone()
+                                : user.getPhoneNumber());
+                order.setCommonOrderId(request.getCommonOrderId());
 
                 OrderEntity savedOrder = orderRepository.save(order);
 
@@ -96,7 +117,7 @@ public class OrderService {
                 LocalDateTime now = LocalDateTime.now();
 
                 BigDecimal sessionMonthly = bookingRepository.sumSessionRevenueByPractitionerAndDateRange(
-                                providerId, now.withDayOfMonth(1).with(java.time.LocalTime.MIN), now);
+                                providerId, now.toLocalDate().with(java.time.temporal.TemporalAdjusters.firstDayOfMonth()), now.toLocalDate());
                 double currentMonthSessionRev = sessionMonthly != null ? sessionMonthly.doubleValue() : 0.0;
 
                 return PractitionerStatsDTO.builder()
@@ -120,7 +141,8 @@ public class OrderService {
 
                 return OrderDTO.builder()
                                 .orderId(order.getOrderId())
-                                .productName(order.getProduct().getName())
+                                .productId(order.getProduct().getProductId())
+                                .name(order.getProduct().getName())
                                 .productImage(productImg)
                                 .price(order.getProduct().getPrice().doubleValue())
                                 .quantity(order.getQuantity())
@@ -129,6 +151,7 @@ public class OrderService {
                                 .deliveryDate(deliveryDate)
                                 .deliveryStatus(deliveryStatus)
                                 .status(order.getStatus())
+                                .commonOrderId(order.getCommonOrderId())
                                 .build();
         }
 }

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TopNav } from '../components/TopNav';
-import { api, type Profile } from '../api/api';
+import { api, type Profile } from '../api';
 
 export function DegreeUploadPage() {
   const navigate = useNavigate();

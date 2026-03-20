@@ -103,6 +103,76 @@ export const PatientActivity: React.FC<Props> = ({ data, loading }) => {
                     />
                 </div>
             </section>
+            
+            {/* Spend Distribution Graph */}
+            <section className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-xl shadow-brand-500/5 overflow-hidden">
+                <div className="flex items-center gap-4 mb-10">
+                    <div className="p-3 bg-brand-600 rounded-2xl text-white shadow-lg shadow-brand-500/20">
+                        <TrendingUp size={24} />
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-black text-slate-900">Spend Distribution</h2>
+                        <p className="text-xs text-slate-500 font-medium">Breakdown of wellness investments</p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+                    <div className="space-y-8">
+                        {/* Session Spend Bar */}
+                        <div className="space-y-3">
+                            <div className="flex justify-between items-end">
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Session Costs</p>
+                                    <p className="text-2xl font-black text-slate-900">{formatCurrency(data.totalSessionSpent)}</p>
+                                </div>
+                                <p className="text-xs font-black text-brand-600">
+                                    {data.totalSpent > 0 ? Math.round((data.totalSessionSpent / data.totalSpent) * 100) : 0}%
+                                </p>
+                            </div>
+                            <div className="h-4 bg-slate-50 rounded-full overflow-hidden border border-slate-100 p-1">
+                                <motion.div 
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${data.totalSpent > 0 ? (data.totalSessionSpent / data.totalSpent) * 100 : 0}%` }}
+                                    transition={{ duration: 1, delay: 0.5 }}
+                                    className="h-full bg-brand-500 rounded-full"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Product Spend Bar */}
+                        <div className="space-y-3">
+                            <div className="flex justify-between items-end">
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Product Spend</p>
+                                    <p className="text-2xl font-black text-slate-900">{formatCurrency(data.totalProductSpent)}</p>
+                                </div>
+                                <p className="text-xs font-black text-violet-600">
+                                    {data.totalSpent > 0 ? Math.round((data.totalProductSpent / data.totalSpent) * 100) : 0}%
+                                </p>
+                            </div>
+                            <div className="h-4 bg-slate-50 rounded-full overflow-hidden border border-slate-100 p-1">
+                                <motion.div 
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${data.totalSpent > 0 ? (data.totalProductSpent / data.totalSpent) * 100 : 0}%` }}
+                                    transition={{ duration: 1, delay: 0.7 }}
+                                    className="h-full bg-violet-500 rounded-full"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-slate-900 rounded-[2.5rem] p-10 text-white relative overflow-hidden group">
+                        <div className="relative z-10">
+                            <h4 className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">Total Wellness Investment</h4>
+                            <p className="text-5xl font-black text-brand-400 mb-6">{formatCurrency(data.totalSpent)}</p>
+                            <div className="flex items-center gap-3 text-brand-400 bg-brand-400/10 w-fit px-4 py-2 rounded-xl text-xs font-black">
+                                <TrendingUp size={16} /> +12.5% vs last year
+                            </div>
+                        </div>
+                        <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-brand-500/10 rounded-full blur-[60px] group-hover:bg-brand-500/20 transition-all duration-700" />
+                    </div>
+                </div>
+            </section>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
@@ -129,10 +199,10 @@ export const PatientActivity: React.FC<Props> = ({ data, loading }) => {
 
                                         {/* Profile Image */}
                                         <div className="w-12 h-12 rounded-xl bg-white overflow-hidden shadow-sm transition-transform group-hover:scale-110">
-                                            {session.practitioner?.profileImage ? (
+                                            {session.providerProfileImage ? (
                                                 <img
-                                                    src={formatImageUrl(session.practitioner.profileImage)}
-                                                    alt={session.practitioner.fullName}
+                                                    src={formatImageUrl(session.providerProfileImage)}
+                                                    alt={session.providerName}
                                                     className="w-full h-full object-cover"
                                                 />
                                             ) : (
@@ -145,15 +215,15 @@ export const PatientActivity: React.FC<Props> = ({ data, loading }) => {
                                         {/* Practitioner Info */}
                                         <div>
                                             <p className="text-sm font-black text-slate-900">
-                                                {session.practitioner?.fullName || 'Practitioner'}
+                                                {session.providerName || 'Practitioner'}
                                             </p>
 
                                             <p className="text-[10px] font-bold text-slate-400">
-                                                {session.practitioner?.specialization}
+                                                {session.providerSpecialization}
                                             </p>
 
                                             <p className="text-[10px] font-bold text-slate-400">
-                                                {formatDateToIndian(session.bookingDate)}
+                                                {formatDateToIndian(session.sessionDate)}
                                             </p>
                                         </div>
                                     </div>
@@ -202,7 +272,7 @@ export const PatientActivity: React.FC<Props> = ({ data, loading }) => {
                                             {order.productImage ? (
                                                 <img
                                                     src={formatImageUrl(order.productImage)}
-                                                    alt={order.productName}
+                                                    alt={order.name}
                                                     className="w-full h-full object-cover"
                                                 />
                                             ) : (
@@ -214,7 +284,7 @@ export const PatientActivity: React.FC<Props> = ({ data, loading }) => {
 
                                         <div>
                                             <p className="text-sm font-black text-slate-900">
-                                                {order.productName}
+                                                {order.name}
                                             </p>
                                             <p className="text-[10px] font-bold text-slate-400">
                                                 Qty: {order.quantity}

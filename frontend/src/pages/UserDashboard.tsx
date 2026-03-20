@@ -9,7 +9,8 @@ import { api, type Profile, type Booking, type PatientAnalytics, type Notificati
 import {
   Calendar, LayoutDashboard, ShoppingBag, MessageSquare, Sparkles, Clock,
   Compass, Activity, User, Mail, MapPin, Globe, Shield, Save, CheckCircle2,
-  XCircle, RefreshCw, Star, ArrowRight, ClipboardList, TrendingUp, Bell, AlertCircle
+  XCircle, RefreshCw, Star, ArrowRight, ClipboardList, TrendingUp, Bell, AlertCircle,
+  ShoppingCart, Bookmark, Phone
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Link } from 'react-router-dom'
@@ -24,6 +25,8 @@ interface EditProfileForm {
   city?: string
   country?: string
   specialization?: string
+  address?: string
+  phoneNumber?: string
   password?: string
   confirmPassword?: string
 }
@@ -58,10 +61,10 @@ const getBookingStatus = (booking: Booking): 'Pending' | 'Ongoing' | 'Completed'
   if (booking.status === 'CANCELLED') return 'Cancelled'
   if (booking.status === 'REJECTED') return 'Cancelled'
   if (booking.status === 'PENDING_COMPLETION_ACTION') return 'Completed'
-  if (!booking.bookingDate || !booking.startTime) return 'Pending'
+  if (!booking.sessionDate || !booking.startTime) return 'Pending'
 
   const now = new Date()
-  const dateStr = booking.bookingDate.split('T')[0]
+  const dateStr = booking.sessionDate.split('T')[0]
   const start = new Date(`${dateStr}T${booking.startTime}`)
   const dur = booking.duration || 60
   const end = new Date(start.getTime() + dur * 60 * 1000)
@@ -99,6 +102,8 @@ export function UserDashboard() {
   const [analyticsLoading, setAnalyticsLoading] = useState(true)
   const [notifications, setNotifications] = useState<AppNotification[]>([])
   const [showNotifications, setShowNotifications] = useState(false)
+  // Calendar: all statuses so completed sessions remain visible
+  const [calendarSessions, setCalendarSessions] = useState<Booking[]>([])
 
   const unreadCount = notifications.filter(n => !n.read).length
 
@@ -110,7 +115,7 @@ export function UserDashboard() {
     fetchData()
     const interval = setInterval(fetchData, 10000) // Poll every 10s for real-time updates
     return () => clearInterval(interval)
-  }, [])
+  }, [isEditing])
 
   const fetchData = async () => {
     try {
@@ -119,41 +124,28 @@ export function UserDashboard() {
       if (userProfile.profileImage) {
         localStorage.setItem('profileImage', userProfile.profileImage)
       }
-      setEditForm({
-        name: userProfile.name,
-        city: userProfile.city,
-        country: userProfile.country,
-        specialization: userProfile.specialization,
-      })
-      if (userProfile.id) {
-        // Fetch both legacy bookings and smart sessions history
-        const [bookingsHistory, sessionsHistory] = await Promise.all([
-          api.getUserBookingHistory(userProfile.id),
-          api.getClientSessionsHistory(userProfile.id)
-        ]);
-
-        // Map SessionBooking to Booking interface for consistency in the dashboard
-        const mappedSessions: Booking[] = sessionsHistory.map(s => ({
-          id: s.id || 0,
-          userId: s.clientId,
-          bookingDate: s.sessionDate,
-          startTime: s.startTime,
-          endTime: s.endTime,
-          duration: s.duration,
-          notes: s.issueDescription,
-          practitionerComment: s.providerMessage,
-          status: s.status,
-          sessionFee: s.sessionFee,
-          practitioner: {
-            id: s.providerId,
-            fullName: s.providerName || 'Practitioner',
-            specialization: s.providerSpecialization || 'Specialist',
-            profileImage: s.providerProfileImage || ''
-          }
-        }));
-
-        setBookings([...bookingsHistory, ...mappedSessions])
-        fetchAnalytics(userProfile.id)
+      if (!isEditing) {
+        setEditForm({
+          name: userProfile.name,
+          city: userProfile.city,
+          country: userProfile.country,
+          address: userProfile.address,
+          phoneNumber: userProfile.phoneNumber,
+          specialization: userProfile.specialization,
+        })
+      }
+      if (userProfile?.id) {
+        try {
+          const [bookingsHistory, calendarRes] = await Promise.all([
+            api.getUserBookings(userProfile.id),
+            api.getClientCalendarSessions(userProfile.id),
+          ]);
+          setBookings(bookingsHistory)
+          setCalendarSessions(calendarRes || [])
+          fetchAnalytics(userProfile.id)
+        } catch (error) {
+          console.error("Error fetching bookings:", error);
+        }
       }
       // Fetch only approved practitioners for patient view
       const practitioners = await api.getApprovedPractitioners()
@@ -178,7 +170,7 @@ export function UserDashboard() {
   const handleBookingAction = async (bookingId: number, action: 'accept-reschedule' | 'cancel' | 'reject') => {
     try {
       if (action === 'accept-reschedule') {
-        await api.acceptRescheduleBooking(bookingId)
+        await api.confirmReschedule(bookingId)
         setMessage('Reschedule accepted successfully!')
       } else if (action === 'cancel' || action === 'reject') {
         await api.cancelBooking(bookingId)
@@ -205,14 +197,13 @@ export function UserDashboard() {
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (editForm.password && editForm.password !== editForm.confirmPassword) {
-      setMessage('Passwords do not match!')
-      return
-    }
     setUpdateLoading(true)
     setMessage('')
     try {
-      const updated = await api.updateProfile(editForm)
+      const payload = {
+        ...editForm
+      }
+      const updated = await api.updateProfile(payload)
       setProfile({ ...profile!, ...updated })
       setIsEditing(false)
       setMessage('Profile updated successfully!')
@@ -238,16 +229,18 @@ export function UserDashboard() {
 
   return (
     <>
-      <SessionReminderBanner fetchReminders={api.getUpcomingSessionReminders} />
+      <SessionReminderBanner fetchReminders={() => api.getUpcomingSessions(profile.id, 'CLIENT')} /> 
       <DashboardLayout
         sidebarItems={[
           { label: 'Dashboard', active: activeTab === 'overview', path: '#', onClick: () => setActiveTab('overview'), icon: <LayoutDashboard size={20} /> },
-          { label: 'Sessions', active: activeTab === 'sessions', path: '#', onClick: () => setActiveTab('sessions'), icon: <Calendar size={20} /> },
           { label: 'My Activity', active: activeTab === 'activity', path: '#', onClick: () => setActiveTab('activity'), icon: <TrendingUp size={20} /> },
-          { label: 'Marketplace', path: '/marketplace', icon: <Compass size={20} /> },
+          { label: 'Find my Practitioner', path: '/marketplace', icon: <Compass size={20} /> },
           { label: 'Products', path: '/products', icon: <ShoppingBag size={20} /> },
-          { label: 'Product Orders', path: '/product-orders', icon: <ClipboardList size={20} /> },
+          { label: 'Cart', path: '/cart', icon: <ShoppingCart size={20} /> },
+          { label: 'Wishlist', path: '/wishlist', icon: <Bookmark size={20} /> },
+          { label: 'Orders', path: '/product-orders', icon: <ClipboardList size={20} /> },
           { label: 'Profile', active: activeTab === 'profile', path: '#', onClick: () => setActiveTab('profile'), icon: <User size={20} /> },
+          { label: 'Community Forum', path: '/forum', icon: <MessageSquare size={20} /> },
         ]}
         headerContent={
           <div className="relative">
@@ -361,23 +354,23 @@ export function UserDashboard() {
                     (() => {
                       const completedBookings = bookings.filter(b => b.status === 'COMPLETED' || b.status === 'NOT_COMPLETED' || getBookingStatus(b) === 'Completed' || getBookingStatus(b) === 'Not Completed');
                       const upcomingBookings = bookings.filter(b => !['COMPLETED', 'NOT_COMPLETED', 'REJECTED', 'CANCELLED'].includes(b.status) && (getBookingStatus(b) === 'Upcoming' || getBookingStatus(b) === 'Ongoing'));
-                      const latestCompleted = completedBookings.sort((a, b) => new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime())[0];
-                      const nextUpcoming = upcomingBookings.sort((a, b) => new Date(a.bookingDate).getTime() - new Date(b.bookingDate).getTime())[0];
+                      const latestCompleted = completedBookings.sort((a, b) => new Date(b.sessionDate).getTime() - new Date(a.sessionDate).getTime())[0];
+                      const nextUpcoming = upcomingBookings.sort((a, b) => new Date(a.sessionDate).getTime() - new Date(b.sessionDate).getTime())[0];
 
                       return (
                         <div className="space-y-4">
                           {nextUpcoming && (
                             <div>
                               <h3 className="text-[10px] font-black uppercase tracking-widest text-brand-600 mb-2">Next Upcoming</h3>
-                              <p className="font-bold text-slate-900">{nextUpcoming.practitioner?.fullName || 'Wellness Session'}</p>
-                              <p className="text-xs text-slate-500">{formatDateToIndian(nextUpcoming.bookingDate)} at {nextUpcoming.startTime}</p>
+                              <p className="font-bold text-slate-900">{nextUpcoming.providerName || 'Wellness Session'}</p>
+                              <p className="text-xs text-slate-500">{formatDateToIndian(nextUpcoming.sessionDate)} at {nextUpcoming.startTime}</p>
                             </div>
                           )}
                           {!nextUpcoming && latestCompleted && (
                             <div>
                               <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Last Session</h3>
-                              <p className="font-bold text-slate-900">{latestCompleted.practitioner?.fullName || 'Wellness Session'}</p>
-                              <p className="text-xs text-slate-500">{formatDateToIndian(latestCompleted.bookingDate)}</p>
+                              <p className="font-bold text-slate-900">{latestCompleted.providerName || 'Wellness Session'}</p>
+                              <p className="text-xs text-slate-500">{formatDateToIndian(latestCompleted.sessionDate)}</p>
                             </div>
                           )}
                         </div>
@@ -494,14 +487,13 @@ export function UserDashboard() {
                   {bookings.length > 0 ? (
                     bookings
                       .slice()
-                      .sort((a, b) => new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime())
+                      .sort((a, b) => new Date(b.sessionDate).getTime() - new Date(a.sessionDate).getTime())
                       .map((booking, idx) => {
                         const computedStatus = getBookingStatus(booking)
                         const badgeClasses = getBookingStatusClasses(computedStatus === 'Upcoming' ? 'Pending' : computedStatus)
-                        const p = booking.practitioner
                         return (
                           <motion.div
-                            key={booking.id}
+                            key={booking.id || idx}
                             initial={{ opacity: 0, x: -10 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: idx * 0.05 }}
@@ -510,25 +502,25 @@ export function UserDashboard() {
                             <div className="flex flex-col md:flex-row justify-between gap-6">
                               <div className="flex items-start gap-5">
                                 <div className="h-14 w-14 rounded-2xl overflow-hidden bg-brand-50 border border-brand-100 flex-shrink-0">
-                                  {p?.profileImage ? (
-                                    <img src={formatImageUrl(p.profileImage)} alt={p.fullName} className="w-full h-full object-cover" />
+                                  {booking.providerProfileImage ? (
+                                    <img src={formatImageUrl(booking.providerProfileImage)} alt={booking.providerName} className="w-full h-full object-cover" />
                                   ) : (
                                     <div className="w-full h-full flex items-center justify-center text-brand-600 font-black text-xl bg-brand-50">
-                                      {p?.fullName ? p.fullName[0] : 'P'}
+                                      {booking.providerName ? booking.providerName[0] : 'P'}
                                     </div>
                                   )}
                                 </div>
                                 <div className="space-y-1">
                                   <h4 className="font-black text-slate-900 text-lg leading-tight group-hover:text-brand-600 transition-colors">
-                                    {p?.fullName || 'Practitioner'}
+                                    {booking.providerName || 'Practitioner'}
                                   </h4>
                                   <p className="text-[10px] font-black uppercase tracking-widest text-brand-600/60">
-                                    {p?.specialization || 'Wellness Expert'}
+                                    {booking.providerSpecialization || 'Wellness Expert'}
                                   </p>
                                   <div className="flex items-center gap-3 pt-2">
                                     <p className="text-xs text-slate-500 font-bold flex items-center gap-1.5 bg-white px-3 py-1 rounded-lg border border-slate-100 shadow-sm">
                                       <Calendar size={12} className="text-brand-500" />
-                                      {formatDateToIndian(booking.bookingDate)}
+                                      {formatDateToIndian(booking.sessionDate)}
                                     </p>
                                     <p className="text-xs text-slate-500 font-bold flex items-center gap-1.5 bg-white px-3 py-1 rounded-lg border border-slate-100 shadow-sm">
                                       <Clock size={12} className="text-brand-500" />
@@ -549,18 +541,18 @@ export function UserDashboard() {
                               </div>
                             </div>
 
-                            {(booking.notes || booking.practitionerComment) && (
+                            {(booking.description || booking.providerMessage) && (
                               <div className="mt-6 pt-6 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {booking.notes && (
+                                {booking.description && (
                                   <div className="bg-white/50 p-4 rounded-2xl border border-slate-100">
                                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Your Note</p>
-                                    <p className="text-xs text-slate-600 font-medium italic">"{booking.notes}"</p>
+                                    <p className="text-xs text-slate-600 font-medium italic">"{booking.description}"</p>
                                   </div>
                                 )}
-                                {booking.practitionerComment && (
+                                {booking.providerMessage && (
                                   <div className="bg-brand-50/50 p-4 rounded-2xl border border-brand-100/50">
                                     <p className="text-[10px] font-black uppercase tracking-widest text-brand-600 mb-2">Practitioner Remark</p>
-                                    <p className="text-xs text-brand-900 font-bold">"{booking.practitionerComment}"</p>
+                                    <p className="text-xs text-brand-900 font-bold">"{booking.providerMessage}"</p>
                                   </div>
                                 )}
                               </div>
@@ -621,25 +613,7 @@ export function UserDashboard() {
               </motion.header>
 
               <SessionCalendar
-                sessions={bookings
-                  .filter(b => ['ACCEPTED', 'CONFIRMED', 'RESCHEDULED'].includes(b.status))
-                  .map(b => ({
-                    id: b.id,
-                    clientId: b.userId,
-                    clientName: b.clientName || 'You',
-                    providerId: b.practitioner?.id || 0,
-                    providerName: b.practitioner?.fullName || 'Practitioner',
-                    sessionDate: b.bookingDate, // Assuming ISO format or compatible
-                    startTime: b.startTime || '09:00',
-                    endTime: b.endTime || (() => {
-                      const d = b.bookingDate ? new Date(b.bookingDate) : new Date();
-                      const dur = b.duration || 60;
-                      return new Date(d.getTime() + dur * 60000).toTimeString().substring(0, 5);
-                    })(),
-                    duration: b.duration || 60,
-                    issueDescription: b.notes || '',
-                    status: 'ACCEPTED' as const
-                  } as any))}
+                sessions={calendarSessions}
                 role="patient"
               />
 
@@ -663,14 +637,18 @@ export function UserDashboard() {
                         return !['COMPLETED', 'NOT_COMPLETED', 'REJECTED', 'CANCELLED'].includes(b.status) && (status === 'Upcoming' || status === 'Ongoing' || status === 'Pending')
                       })
                       .slice()
-                      .sort((a, b) => new Date(a.bookingDate).getTime() - new Date(b.bookingDate).getTime())
+                      .sort((a, b) => new Date(a.sessionDate).getTime() - new Date(b.sessionDate).getTime())
                       .map((booking, idx) => {
                         const statusColor =
                           booking.status === 'ACCEPTED' || booking.status === 'CONFIRMED'
                             ? 'border-emerald-200 text-emerald-700 bg-emerald-50'
-                            : booking.status === 'RESCHEDULED'
+                            : booking.status === 'RESCHEDULE_REQUESTED'
                               ? 'border-sky-200 text-sky-700 bg-sky-50'
-                              : 'border-amber-200 text-amber-700 bg-amber-50'
+                              : booking.status === 'PENDING'
+                                ? 'border-amber-200 text-amber-700 bg-amber-50'
+                                : booking.status === 'NOT_COMPLETED'
+                                  ? 'border-rose-200 text-rose-700 bg-rose-50'
+                                  : 'border-slate-200 text-slate-700 bg-slate-50'
                         return (
                           <motion.div
                             key={booking.id ?? idx}
@@ -681,25 +659,25 @@ export function UserDashboard() {
                           >
                             <div className="flex items-center gap-5">
                               <div className="h-12 w-12 rounded-2xl overflow-hidden bg-brand-50 border border-brand-100 flex-shrink-0">
-                                {booking.practitioner?.profileImage ? (
-                                  <img src={formatImageUrl(booking.practitioner.profileImage)} alt={booking.practitioner.fullName} className="w-full h-full object-cover" />
+                                {booking.providerProfileImage ? (
+                                  <img src={formatImageUrl(booking.providerProfileImage)} alt={booking.providerName} className="w-full h-full object-cover" />
                                 ) : (
                                   <div className="w-full h-full flex items-center justify-center text-brand-600 font-black text-lg bg-brand-50">
-                                    {booking.practitioner?.fullName?.[0] ?? 'P'}
+                                    {booking.providerName?.[0] ?? 'P'}
                                   </div>
                                 )}
                               </div>
                               <div>
                                 <p className="font-black text-slate-900 leading-tight">
-                                  {booking.practitioner?.fullName || 'Practitioner'}
+                                  {booking.providerName || 'Practitioner'}
                                 </p>
                                 <p className="text-xs font-bold text-brand-600 uppercase tracking-wider mt-0.5">
-                                  {booking.practitioner?.specialization || 'Wellness Expert'}
+                                  {booking.providerSpecialization || 'Wellness Expert'}
                                 </p>
                                 <div className="flex items-center gap-2 mt-2">
                                   <span className="text-xs text-slate-500 font-bold flex items-center gap-1 bg-white px-2.5 py-1 rounded-lg border border-slate-100 shadow-sm">
                                     <Calendar size={11} className="text-brand-500" />
-                                    {formatDateToIndian(booking.bookingDate)}
+                                    {formatDateToIndian(booking.sessionDate)}
                                   </span>
                                   {booking.startTime && (
                                     <span className="text-xs text-slate-500 font-bold flex items-center gap-1 bg-white px-2.5 py-1 rounded-lg border border-slate-100 shadow-sm">
@@ -711,19 +689,21 @@ export function UserDashboard() {
                             </div>
                             <div className="flex flex-col items-end gap-2 flex-shrink-0">
                               <span className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase border shadow-sm ${statusColor}`}>
-                                {booking.status}
+                                {booking.status === 'PENDING' ? 'Pending Approval' :
+                                  booking.status === 'NOT_COMPLETED' ? 'Missed' :
+                                    booking.status}
                               </span>
                               {booking.sessionFee != null && Number(booking.sessionFee) > 0 && (
                                 <span className="text-xs font-black text-slate-500">
                                   ₹ {Number(booking.sessionFee).toLocaleString()}
                                 </span>
                               )}
-                              {booking.notes && (
+                              {booking.description && (
                                 <p className="text-[10px] text-slate-400 font-medium italic max-w-[180px] text-right line-clamp-1">
-                                  "{booking.notes}"
+                                  "{booking.description}"
                                 </p>
                               )}
-                              {booking.status === 'RESCHEDULED' && (
+                              {booking.status === 'RESCHEDULE_REQUESTED' && (
                                 <div className="flex gap-2 mt-3">
                                   <button
                                     onClick={() => handleBookingAction(booking.id, 'accept-reschedule')}
@@ -776,7 +756,7 @@ export function UserDashboard() {
                     bookings
                       .filter(b => ['COMPLETED', 'NOT_COMPLETED', 'CANCELLED', 'REJECTED', 'PENDING_COMPLETION_ACTION'].includes(b.status) || ['Completed', 'Not Completed', 'Cancelled'].includes(getBookingStatus(b)))
                       .slice()
-                      .sort((a, b) => new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime())
+                      .sort((a, b) => new Date(b.sessionDate).getTime() - new Date(a.sessionDate).getTime())
                       .map((booking, idx) => (
                         <motion.div
                           key={booking.id ?? idx}
@@ -791,15 +771,15 @@ export function UserDashboard() {
                             </div>
                             <div>
                               <p className="font-black text-slate-900 leading-tight">
-                                Session with {booking.practitioner?.fullName || 'Practitioner'}
+                                Session with {booking.providerName || 'Practitioner'}
                               </p>
                               <p className="text-xs text-slate-500 font-semibold">
-                                {formatDateToIndian(booking.bookingDate)}{' '}
+                                {formatDateToIndian(booking.sessionDate)}{' '}
                                 {booking.startTime ? `@ ${booking.startTime}` : ''}
                                 {booking.duration ? ` · ${booking.duration} mins` : ''}
                               </p>
                               <p className="text-xs text-slate-500 mt-1 line-clamp-1 italic">
-                                {booking.notes}
+                                {booking.description}
                               </p>
                             </div>
                           </div>
@@ -927,6 +907,32 @@ export function UserDashboard() {
                           disabled={!isEditing}
                           value={editForm.country || ''}
                           onChange={(e) => setEditForm({ ...editForm, country: e.target.value })}
+                          className="w-full bg-slate-50/50 border border-slate-100 rounded-2xl py-4 pl-12 pr-4 text-sm font-bold focus:bg-white focus:border-brand-500 transition-all outline-none disabled:opacity-50"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs font-black uppercase tracking-widest text-slate-400 ml-4">Address</label>
+                      <div className="relative">
+                        <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                        <input
+                          disabled={!isEditing}
+                          value={editForm.address || ''}
+                          onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+                          className="w-full bg-slate-50/50 border border-slate-100 rounded-2xl py-4 pl-12 pr-4 text-sm font-bold focus:bg-white focus:border-brand-500 transition-all outline-none disabled:opacity-50"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs font-black uppercase tracking-widest text-slate-400 ml-4">Phone Number</label>
+                      <div className="relative">
+                        <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                        <input
+                          disabled={!isEditing}
+                          value={editForm.phoneNumber || ''}
+                          onChange={(e) => setEditForm({ ...editForm, phoneNumber: e.target.value })}
                           className="w-full bg-slate-50/50 border border-slate-100 rounded-2xl py-4 pl-12 pr-4 text-sm font-bold focus:bg-white focus:border-brand-500 transition-all outline-none disabled:opacity-50"
                         />
                       </div>

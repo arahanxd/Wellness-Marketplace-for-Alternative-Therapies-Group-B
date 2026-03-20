@@ -13,7 +13,8 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class OrderDTO {
     private Long orderId;
-    private String productName;
+    private Long productId;
+    private String name;
     private String productImage;
     private Double price;
     private Integer quantity;
@@ -22,4 +23,5 @@ public class OrderDTO {
     private LocalDateTime deliveryDate;
     private String deliveryStatus;
     private String status;
+    private String commonOrderId;
 }

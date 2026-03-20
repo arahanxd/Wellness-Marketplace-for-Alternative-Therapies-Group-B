@@ -12,4 +12,8 @@ public class OrderRequestDTO {
     private Long productId;
     private Integer quantity;
     private BigDecimal totalPrice;
+    private String shippingName;
+    private String shippingAddress;
+    private String shippingPhone;
+    private String commonOrderId;
 }

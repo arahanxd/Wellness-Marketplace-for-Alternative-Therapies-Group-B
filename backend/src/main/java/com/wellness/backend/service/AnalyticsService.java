@@ -1,17 +1,17 @@
 package com.wellness.backend.service;
 
 import com.wellness.backend.dto.*;
-import com.wellness.backend.model.BookingStatus;
+import com.wellness.backend.model.SessionStatus;
 import com.wellness.backend.repository.BookingRepository;
 import com.wellness.backend.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.DayOfWeek;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
+import java.time.LocalDate;
 import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -20,271 +20,154 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AnalyticsService {
 
-        private final BookingRepository bookingRepository;
-        private final com.wellness.backend.repository.SessionBookingRepository sessionBookingRepository;
-        private final OrderRepository orderRepository;
+    private final BookingRepository bookingRepository;
+    private final OrderRepository orderRepository;
 
-        public PractitionerAnalyticsDTO getPractitionerAnalytics(Long practitionerId) {
-                LocalDateTime now = LocalDateTime.now();
-                LocalDateTime todayStart = now.with(LocalTime.MIN);
-                LocalDateTime yesterdayStart = todayStart.minusDays(1);
+    public PractitionerAnalyticsDTO getPractitionerAnalytics(Long practitionerId) {
+        LocalDate today = LocalDate.now();
+        LocalDate yesterday = today.minusDays(1);
+        LocalDate weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate prevWeekStart = weekStart.minusWeeks(1);
+        LocalDate monthStart = today.with(TemporalAdjusters.firstDayOfMonth());
+        LocalDate prevMonthStart = monthStart.minusMonths(1);
+        LocalDate yearStart = today.with(TemporalAdjusters.firstDayOfYear());
+        LocalDate prevYearStart = yearStart.minusYears(1);
 
-                LocalDateTime weekStart = now.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-                                .with(LocalTime.MIN);
-                LocalDateTime prevWeekStart = weekStart.minusWeeks(1);
+        // Daily
+        BigDecimal sessionToday = orZero(bookingRepository.sumSessionRevenueByPractitionerAndDateRange(practitionerId, today, today));
+        BigDecimal productToday = orZero(orderRepository.sumProductRevenueByProviderAndDateRange(practitionerId, today.atStartOfDay(), today.plusDays(1).atStartOfDay()));
+        BigDecimal totalToday = sessionToday.add(productToday);
 
-                LocalDateTime monthStart = now.with(TemporalAdjusters.firstDayOfMonth()).with(LocalTime.MIN);
-                LocalDateTime prevMonthStart = monthStart.minusMonths(1);
+        BigDecimal sessionYesterday = orZero(bookingRepository.sumSessionRevenueByPractitionerAndDateRange(practitionerId, yesterday, yesterday));
+        BigDecimal productYesterday = orZero(orderRepository.sumProductRevenueByProviderAndDateRange(practitionerId, yesterday.atStartOfDay(), today.atStartOfDay()));
+        BigDecimal totalYesterday = sessionYesterday.add(productYesterday);
 
-                LocalDateTime yearStart = now.with(TemporalAdjusters.firstDayOfYear()).with(LocalTime.MIN);
-                LocalDateTime prevYearStart = yearStart.minusYears(1);
+        // Weekly
+        BigDecimal sessionThisWeek = orZero(bookingRepository.sumSessionRevenueByPractitionerAndDateRange(practitionerId, weekStart, today));
+        BigDecimal productThisWeek = orZero(orderRepository.sumProductRevenueByProviderAndDateRange(practitionerId, weekStart.atStartOfDay(), today.plusDays(1).atStartOfDay()));
+        BigDecimal totalThisWeek = sessionThisWeek.add(productThisWeek);
 
-                // Daily
-                BigDecimal sessionToday = orZero(
-                                bookingRepository.sumSessionRevenueByPractitionerAndDateRange(practitionerId,
-                                                todayStart, now));
-                BigDecimal productToday = orZero(
-                                orderRepository.sumProductRevenueByProviderAndDateRange(practitionerId, todayStart,
-                                                now));
-                BigDecimal totalToday = sessionToday.add(productToday);
+        BigDecimal sessionPrevWeek = orZero(bookingRepository.sumSessionRevenueByPractitionerAndDateRange(practitionerId, prevWeekStart, weekStart.minusDays(1)));
+        BigDecimal productPrevWeek = orZero(orderRepository.sumProductRevenueByProviderAndDateRange(practitionerId, prevWeekStart.atStartOfDay(), weekStart.atStartOfDay()));
+        BigDecimal totalPrevWeek = sessionPrevWeek.add(productPrevWeek);
 
-                BigDecimal sessionYesterday = orZero(bookingRepository
-                                .sumSessionRevenueByPractitionerAndDateRange(practitionerId, yesterdayStart,
-                                                todayStart));
-                BigDecimal productYesterday = orZero(
-                                orderRepository.sumProductRevenueByProviderAndDateRange(practitionerId, yesterdayStart,
-                                                todayStart));
-                BigDecimal totalYesterday = sessionYesterday.add(productYesterday);
+        // Monthly
+        BigDecimal sessionThisMonth = orZero(bookingRepository.sumSessionRevenueByPractitionerAndDateRange(practitionerId, monthStart, today));
+        BigDecimal productThisMonth = orZero(orderRepository.sumProductRevenueByProviderAndDateRange(practitionerId, monthStart.atStartOfDay(), today.plusDays(1).atStartOfDay()));
+        BigDecimal totalThisMonth = sessionThisMonth.add(productThisMonth);
 
-                // Weekly
-                BigDecimal sessionThisWeek = orZero(
-                                bookingRepository.sumSessionRevenueByPractitionerAndDateRange(practitionerId, weekStart,
-                                                now));
-                BigDecimal productThisWeek = orZero(
-                                orderRepository.sumProductRevenueByProviderAndDateRange(practitionerId, weekStart,
-                                                now));
-                BigDecimal totalThisWeek = sessionThisWeek.add(productThisWeek);
+        BigDecimal sessionPrevMonth = orZero(bookingRepository.sumSessionRevenueByPractitionerAndDateRange(practitionerId, prevMonthStart, monthStart.minusDays(1)));
+        BigDecimal productPrevMonth = orZero(orderRepository.sumProductRevenueByProviderAndDateRange(practitionerId, prevMonthStart.atStartOfDay(), monthStart.atStartOfDay()));
+        BigDecimal totalPrevMonth = sessionPrevMonth.add(productPrevMonth);
 
-                BigDecimal sessionPrevWeek = orZero(bookingRepository
-                                .sumSessionRevenueByPractitionerAndDateRange(practitionerId, prevWeekStart, weekStart));
-                BigDecimal productPrevWeek = orZero(
-                                orderRepository.sumProductRevenueByProviderAndDateRange(practitionerId, prevWeekStart,
-                                                weekStart));
-                BigDecimal totalPrevWeek = sessionPrevWeek.add(productPrevWeek);
+        // Yearly
+        BigDecimal sessionThisYear = orZero(bookingRepository.sumSessionRevenueByPractitionerAndDateRange(practitionerId, yearStart, today));
+        BigDecimal productThisYear = orZero(orderRepository.sumProductRevenueByProviderAndDateRange(practitionerId, yearStart.atStartOfDay(), today.plusDays(1).atStartOfDay()));
+        BigDecimal totalThisYear = sessionThisYear.add(productThisYear);
 
-                // Monthly
-                BigDecimal sessionThisMonth = orZero(
-                                bookingRepository.sumSessionRevenueByPractitionerAndDateRange(practitionerId,
-                                                monthStart, now));
-                BigDecimal productThisMonth = orZero(
-                                orderRepository.sumProductRevenueByProviderAndDateRange(practitionerId, monthStart,
-                                                now));
-                BigDecimal totalThisMonth = sessionThisMonth.add(productThisMonth);
+        BigDecimal sessionPrevYear = orZero(bookingRepository.sumSessionRevenueByPractitionerAndDateRange(practitionerId, prevYearStart, yearStart.minusDays(1)));
+        BigDecimal productPrevYear = orZero(orderRepository.sumProductRevenueByProviderAndDateRange(practitionerId, prevYearStart.atStartOfDay(), yearStart.atStartOfDay()));
+        BigDecimal totalPrevYear = sessionPrevYear.add(productPrevYear);
 
-                BigDecimal sessionPrevMonth = orZero(bookingRepository
-                                .sumSessionRevenueByPractitionerAndDateRange(practitionerId, prevMonthStart,
-                                                monthStart));
-                BigDecimal productPrevMonth = orZero(
-                                orderRepository.sumProductRevenueByProviderAndDateRange(practitionerId, prevMonthStart,
-                                                monthStart));
-                BigDecimal totalPrevMonth = sessionPrevMonth.add(productPrevMonth);
+        // All Time
+        BigDecimal totalSessionAllTime = orZero(bookingRepository.sumTotalSessionRevenueByPractitioner(practitionerId));
+        BigDecimal totalProductAllTime = orZero(orderRepository.sumTotalProductRevenueByProvider(practitionerId));
+        BigDecimal totalAllTime = totalSessionAllTime.add(totalProductAllTime);
 
-                // Yearly
-                BigDecimal sessionThisYear = orZero(
-                                bookingRepository.sumSessionRevenueByPractitionerAndDateRange(practitionerId, yearStart,
-                                                now));
-                BigDecimal productThisYear = orZero(
-                                orderRepository.sumProductRevenueByProviderAndDateRange(practitionerId, yearStart,
-                                                now));
-                BigDecimal totalThisYear = sessionThisYear.add(productThisYear);
+        return PractitionerAnalyticsDTO.builder()
+                .dailyRevenue(totalToday)
+                .weeklyRevenue(totalThisWeek)
+                .monthlyRevenue(totalThisMonth)
+                .yearlyRevenue(totalThisYear)
+                .allTimeRevenue(totalAllTime)
+                .dailyGrowthPercent(calculateGrowth(totalToday, totalYesterday))
+                .weeklyGrowthPercent(calculateGrowth(totalThisWeek, totalPrevWeek))
+                .monthlyGrowthPercent(calculateGrowth(totalThisMonth, totalPrevMonth))
+                .yearlyGrowthPercent(calculateGrowth(totalThisYear, totalPrevYear))
+                .sessionRevenueDaily(sessionToday)
+                .productRevenueDaily(productToday)
+                .sessionRevenueMonthly(sessionThisMonth)
+                .productRevenueMonthly(productThisMonth)
+                .sessionRevenueAllTime(totalSessionAllTime)
+                .productRevenueAllTime(totalProductAllTime)
+                .totalSessionRevenue(totalSessionAllTime)
+                .totalProductRevenue(totalProductAllTime)
+                .accumulatedRevenue(totalAllTime)
+                .build();
+    }
 
-                BigDecimal sessionPrevYear = orZero(bookingRepository
-                                .sumSessionRevenueByPractitionerAndDateRange(practitionerId, prevYearStart, yearStart));
-                BigDecimal productPrevYear = orZero(
-                                orderRepository.sumProductRevenueByProviderAndDateRange(practitionerId, prevYearStart,
-                                                yearStart));
-                BigDecimal totalPrevYear = sessionPrevYear.add(productPrevYear);
+    public PatientAnalyticsDTO getPatientAnalytics(Long userId) {
+        LocalDate today = LocalDate.now();
+        LocalDate monthStart = today.with(TemporalAdjusters.firstDayOfMonth());
+        LocalDate yearStart = today.with(TemporalAdjusters.firstDayOfYear());
 
-                // All Time
-                BigDecimal totalSessionAllTime = orZero(
-                                bookingRepository.sumTotalSessionRevenueByPractitioner(practitionerId));
-                BigDecimal totalProductAllTime = orZero(
-                                orderRepository.sumTotalProductRevenueByProvider(practitionerId));
-                BigDecimal totalAllTime = totalSessionAllTime.add(totalProductAllTime);
+        long sessionsAttended = bookingRepository.countByClient_IdAndStatusIn(userId, 
+                List.of(SessionStatus.ACCEPTED, SessionStatus.CONFIRMED, SessionStatus.COMPLETED));
 
-                return PractitionerAnalyticsDTO.builder()
-                                .dailyRevenue(orZero(totalToday))
-                                .weeklyRevenue(orZero(totalThisWeek))
-                                .monthlyRevenue(orZero(totalThisMonth))
-                                .yearlyRevenue(orZero(totalThisYear))
-                                .allTimeRevenue(orZero(totalAllTime))
-                                .dailyGrowthPercent(calculateGrowth(totalToday, totalYesterday))
-                                .weeklyGrowthPercent(calculateGrowth(totalThisWeek, totalPrevWeek))
-                                .monthlyGrowthPercent(calculateGrowth(totalThisMonth, totalPrevMonth))
-                                .yearlyGrowthPercent(calculateGrowth(totalThisYear, totalPrevYear))
-                                .sessionRevenueDaily(orZero(sessionToday))
-                                .productRevenueDaily(orZero(productToday))
-                                .sessionRevenueMonthly(orZero(sessionThisMonth))
-                                .productRevenueMonthly(orZero(productThisMonth))
-                                .sessionRevenueAllTime(orZero(totalSessionAllTime))
-                                .productRevenueAllTime(orZero(totalProductAllTime))
-                                .totalSessionRevenue(orZero(totalSessionAllTime))
-                                .totalProductRevenue(orZero(totalProductAllTime))
-                                .accumulatedRevenue(orZero(totalAllTime))
-                                .build();
+        BigDecimal totalSessionSpent = orZero(bookingRepository.sumTotalSessionSpentByPatient(userId));
+        BigDecimal totalProductSpent = orZero(orderRepository.sumTotalProductSpentByPatient(userId));
+        BigDecimal totalSpent = totalSessionSpent.add(totalProductSpent);
+
+        BigDecimal monthlySpent = orZero(bookingRepository.sumSessionSpentByPatientAndDateRange(userId, monthStart, today))
+                .add(orZero(orderRepository.sumProductSpentByPatientAndDateRange(userId, monthStart.atStartOfDay(), today.plusDays(1).atStartOfDay())));
+
+        BigDecimal yearlySpent = orZero(bookingRepository.sumSessionSpentByPatientAndDateRange(userId, yearStart, today))
+                .add(orZero(orderRepository.sumProductSpentByPatientAndDateRange(userId, yearStart.atStartOfDay(), today.plusDays(1).atStartOfDay())));
+
+        List<BookingResponseDTO> recentSessions = bookingRepository.findRecentSessionsByClient(userId, PageRequest.of(0, 5))
+                .stream().map(this::toDto).collect(Collectors.toList());
+
+        List<OrderDTO> recentOrders = orderRepository.findTop5ByUser_IdOrderByOrderDateDesc(userId)
+                .stream().map(this::mapToOrderDTO).collect(Collectors.toList());
+
+        return PatientAnalyticsDTO.builder()
+                .sessionsAttended(sessionsAttended)
+                .totalSessionSpent(totalSessionSpent)
+                .totalProductSpent(totalProductSpent)
+                .totalSpent(totalSpent)
+                .monthlySpent(monthlySpent)
+                .yearlySpent(yearlySpent)
+                .recentSessions(recentSessions)
+                .recentOrders(recentOrders)
+                .build();
+    }
+
+    private BigDecimal orZero(BigDecimal val) {
+        return val == null ? BigDecimal.ZERO : val;
+    }
+
+    private Double calculateGrowth(BigDecimal current, BigDecimal previous) {
+        if (previous == null || previous.compareTo(BigDecimal.ZERO) == 0) {
+            return current.compareTo(BigDecimal.ZERO) > 0 ? 100.0 : 0.0;
         }
+        return current.subtract(previous)
+                .divide(previous, 4, RoundingMode.HALF_UP)
+                .multiply(BigDecimal.valueOf(100))
+                .doubleValue();
+    }
 
-        public PatientAnalyticsDTO getPatientAnalytics(Long userId) {
-                LocalDateTime now = LocalDateTime.now();
-                LocalDateTime monthStart = now.with(TemporalAdjusters.firstDayOfMonth()).with(LocalTime.MIN);
-                LocalDateTime yearStart = now.with(TemporalAdjusters.firstDayOfYear()).with(LocalTime.MIN);
+    private BookingResponseDTO toDto(com.wellness.backend.model.Booking entity) {
+        String profileImg = entity.getProvider().getProfileImage();
+        if (profileImg != null && !profileImg.startsWith("http")) profileImg = "http://localhost:8080/uploads/" + profileImg;
+        return BookingResponseDTO.builder()
+                .id(entity.getId()).clientId(entity.getClient().getId()).clientName(entity.getClient().getName()).clientEmail(entity.getClient().getEmail())
+                .providerId(entity.getProvider().getId()).providerName(entity.getProvider().getName()).providerSpecialization(entity.getProvider().getSpecialization()).providerProfileImage(profileImg)
+                .sessionDate(entity.getSessionDate()).startTime(entity.getStartTime()).endTime(entity.getEndTime()).duration(entity.getDuration())
+                .description(entity.getIssueDescription()).status(entity.getStatus()).providerMessage(entity.getProviderMessage())
+                .reminderSent(entity.isReminderSent()).refunded(entity.isRefunded()).createdAt(entity.getCreatedAt()).updatedAt(entity.getUpdatedAt())
+                .sessionFee(entity.getProvider().getSessionFee()).build();
+    }
 
-                long sessionsAttendedLegacy = bookingRepository.countByUser_IdAndStatusIn(userId,
-                                List.of(BookingStatus.ACCEPTED, BookingStatus.CONFIRMED, BookingStatus.RESCHEDULED,
-                                                BookingStatus.COMPLETED, BookingStatus.PENDING_COMPLETION_ACTION));
-                long sessionsAttendedSmart = sessionBookingRepository.countByClient_IdAndStatusIn(userId,
-                                List.of(com.wellness.backend.model.SessionStatus.ACCEPTED,
-                                                com.wellness.backend.model.SessionStatus.CONFIRMED,
-                                                com.wellness.backend.model.SessionStatus.RESCHEDULE_REQUESTED,
-                                                com.wellness.backend.model.SessionStatus.COMPLETED,
-                                                com.wellness.backend.model.SessionStatus.PENDING_COMPLETION_ACTION));
-                long sessionsAttended = sessionsAttendedLegacy + sessionsAttendedSmart;
-
-                BigDecimal totalSessionSpentLegacy = orZero(bookingRepository.sumTotalSessionSpentByPatient(userId));
-                BigDecimal totalSessionSpentSmart = orZero(
-                                sessionBookingRepository.sumTotalSessionSpentByPatient(userId));
-                BigDecimal totalSessionSpent = totalSessionSpentLegacy.add(totalSessionSpentSmart);
-
-                BigDecimal totalProductSpent = orZero(orderRepository.sumTotalProductSpentByPatient(userId));
-                BigDecimal totalSpent = totalSessionSpent.add(totalProductSpent);
-
-                BigDecimal sessionThisMonth = orZero(
-                                bookingRepository.sumSessionSpentByPatientAndDateRange(userId, monthStart, now));
-                BigDecimal productThisMonth = orZero(
-                                orderRepository.sumProductSpentByPatientAndDateRange(userId, monthStart, now));
-                BigDecimal monthlySpent = sessionThisMonth.add(productThisMonth);
-
-                BigDecimal sessionThisYear = orZero(
-                                bookingRepository.sumSessionSpentByPatientAndDateRange(userId, yearStart, now));
-                BigDecimal productThisYear = orZero(
-                                orderRepository.sumProductSpentByPatientAndDateRange(userId, yearStart, now));
-                BigDecimal yearlySpent = sessionThisYear.add(productThisYear);
-
-                List<BookingResponseDTO> recentLegacy = bookingRepository
-                                .findTop5ByUser_IdOrderByBookingDateDesc(userId)
-                                .stream().map(this::mapToBookingDTO).collect(Collectors.toList());
-
-                List<BookingResponseDTO> recentSmart = sessionBookingRepository
-                                .findTop5ByClient_IdOrderBySessionDateDescStartTimeDesc(userId)
-                                .stream().map(this::mapSessionToBookingDTO).collect(Collectors.toList());
-
-                // Merge and take top 5
-                List<BookingResponseDTO> recentSessions = new java.util.ArrayList<>();
-                recentSessions.addAll(recentLegacy);
-                recentSessions.addAll(recentSmart);
-                recentSessions.sort((a, b) -> b.getBookingDate().compareTo(a.getBookingDate()));
-                if (recentSessions.size() > 5) {
-                        recentSessions = recentSessions.subList(0, 5);
-                }
-
-                List<OrderDTO> recentOrders = orderRepository.findTop5ByUser_IdOrderByOrderDateDesc(userId)
-                                .stream().map(this::mapToOrderDTO).collect(Collectors.toList());
-
-                return PatientAnalyticsDTO.builder()
-                                .sessionsAttended(sessionsAttended)
-                                .totalSessionSpent(totalSessionSpent)
-                                .totalProductSpent(totalProductSpent)
-                                .totalSpent(totalSpent)
-                                .monthlySpent(monthlySpent)
-                                .yearlySpent(yearlySpent)
-                                .recentSessions(recentSessions)
-                                .recentOrders(recentOrders)
-                                .build();
-        }
-
-        private BigDecimal orZero(BigDecimal val) {
-                return val == null ? BigDecimal.ZERO : val;
-        }
-
-        private Double calculateGrowth(BigDecimal current, BigDecimal previous) {
-                if (previous == null || previous.compareTo(BigDecimal.ZERO) == 0) {
-                        return current.compareTo(BigDecimal.ZERO) > 0 ? 100.0 : 0.0;
-                }
-                return current.subtract(previous)
-                                .divide(previous, 4, RoundingMode.HALF_UP)
-                                .multiply(BigDecimal.valueOf(100))
-                                .doubleValue();
-        }
-
-        private BookingResponseDTO mapToBookingDTO(com.wellness.backend.model.BookingEntity b) {
-                BookingResponseDTO dto = new BookingResponseDTO();
-                dto.setId(b.getId());
-                dto.setUserId(b.getUser().getId());
-                dto.setClientName(b.getUser().getName());
-                dto.setBookingDate(b.getBookingDate());
-                if (b.getBookingDate() != null) {
-                        dto.setStartTime(b.getBookingDate().toLocalTime().toString());
-                }
-                dto.setDuration(b.getDuration());
-                dto.setStatus(b.getStatus().name());
-                dto.setNotes(b.getNotes());
-                dto.setPractitionerComment(b.getPractitionerComment());
-                dto.setSessionFee(b.getSessionFee());
-
-                if (b.getPractitioner() != null) {
-                        String profileImg = b.getPractitioner().getProfileImage();
-                        if (profileImg != null && !profileImg.startsWith("http")) {
-                                profileImg = "http://localhost:8080/uploads/" + profileImg;
-                        }
-                        dto.setPractitioner(UserDTO.builder()
-                                        .id(b.getPractitioner().getId())
-                                        .fullName(b.getPractitioner().getName())
-                                        .specialization(b.getPractitioner().getSpecialization())
-                                        .profileImage(profileImg)
-                                        .build());
-                }
-                return dto;
-        }
-
-        private BookingResponseDTO mapSessionToBookingDTO(com.wellness.backend.model.SessionBookingEntity s) {
-                BookingResponseDTO dto = new BookingResponseDTO();
-                dto.setId(s.getId());
-                dto.setUserId(s.getClient().getId());
-                dto.setClientName(s.getClient().getName());
-                // Combine date and time for consistent LocalDateTime handling
-                dto.setBookingDate(LocalDateTime.of(s.getSessionDate(), s.getStartTime()));
-                dto.setStartTime(s.getStartTime().toString());
-                dto.setDuration(s.getDuration());
-                dto.setStatus(s.getStatus().name());
-                dto.setNotes(s.getIssueDescription());
-                dto.setPractitionerComment(s.getProviderMessage());
-                dto.setSessionFee(s.getProvider().getSessionFee());
-
-                if (s.getProvider() != null) {
-                        String profileImg = s.getProvider().getProfileImage();
-                        if (profileImg != null && !profileImg.startsWith("http")) {
-                                profileImg = "http://localhost:8080/uploads/" + profileImg;
-                        }
-                        dto.setPractitioner(UserDTO.builder()
-                                        .id(s.getProvider().getId())
-                                        .fullName(s.getProvider().getName())
-                                        .specialization(s.getProvider().getSpecialization())
-                                        .profileImage(profileImg)
-                                        .build());
-                }
-                return dto;
-        }
-
-        private OrderDTO mapToOrderDTO(com.wellness.backend.model.OrderEntity o) {
-                OrderDTO dto = new OrderDTO();
-                dto.setOrderId(o.getOrderId());
-                dto.setProductName(o.getProduct().getName());
-                dto.setProductImage(o.getProduct().getImageUrl());
-                dto.setPrice(o.getProduct().getPrice().doubleValue());
-                dto.setQuantity(o.getQuantity());
-                dto.setTotalAmount(o.getTotalPrice().doubleValue());
-                dto.setOrderDate(o.getOrderDate());
-                dto.setDeliveryStatus(o.getDeliveryStatus());
-                return dto;
-        }
+    private OrderDTO mapToOrderDTO(com.wellness.backend.model.OrderEntity o) {
+        OrderDTO dto = new OrderDTO();
+        dto.setOrderId(o.getOrderId());
+        dto.setName(o.getProduct().getName());
+        dto.setProductImage(o.getProduct().getImageUrl());
+        dto.setPrice(o.getProduct().getPrice().doubleValue());
+        dto.setQuantity(o.getQuantity());
+        dto.setTotalAmount(o.getTotalPrice().doubleValue());
+        dto.setOrderDate(o.getOrderDate());
+        dto.setDeliveryStatus(o.getDeliveryStatus());
+        return dto;
+    }
 }

@@ -50,10 +50,20 @@ public class UserController {
             user.setCity(updatedProfile.getCity());
         if (updatedProfile.getCountry() != null)
             user.setCountry(updatedProfile.getCountry());
+        if (updatedProfile.getAddress() != null)
+            user.setAddress(updatedProfile.getAddress());
+        if (updatedProfile.getPhoneNumber() != null)
+            user.setPhoneNumber(updatedProfile.getPhoneNumber());
         if (updatedProfile.getSpecialization() != null)
             user.setSpecialization(updatedProfile.getSpecialization());
         if (updatedProfile.getSessionFee() != null)
             user.setSessionFee(updatedProfile.getSessionFee());
+        if (updatedProfile.getSavedCardNumber() != null)
+            user.setSavedCardNumber(updatedProfile.getSavedCardNumber());
+        if (updatedProfile.getSavedCardExpiry() != null)
+            user.setSavedCardExpiry(updatedProfile.getSavedCardExpiry());
+        if (updatedProfile.getSavedCardHolder() != null)
+            user.setSavedCardHolder(updatedProfile.getSavedCardHolder());
 
         // Update password if provided
         if (updatedProfile.getPassword() != null && !updatedProfile.getPassword().isEmpty()) {

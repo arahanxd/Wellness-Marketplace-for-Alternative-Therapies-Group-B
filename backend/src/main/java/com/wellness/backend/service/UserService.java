@@ -45,6 +45,8 @@ public class UserService {
             user.setSpecialization(updatedUser.getSpecialization());
             user.setCity(updatedUser.getCity());
             user.setCountry(updatedUser.getCountry());
+            user.setAddress(updatedUser.getAddress());
+            user.setPhoneNumber(updatedUser.getPhoneNumber());
             user.setDegreeFile(updatedUser.getDegreeFile());
             user.setVerificationStatus(updatedUser.getVerificationStatus());
             user.setSessionFee(updatedUser.getSessionFee());
