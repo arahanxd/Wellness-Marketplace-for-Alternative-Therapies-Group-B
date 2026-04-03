@@ -281,6 +281,27 @@ export interface Notification {
   createdAt: string
 }
 
+export interface StarRating {
+  oneStar: number
+  twoStar: number
+  threeStar: number
+  fourStar: number
+  fiveStar: number
+  totalReviews: number
+}
+
+export interface PractitionerReview {
+  id?: number
+  clientId: number
+  clientName?: string
+  providerId: number
+  providerName?: string
+  bookingId: number
+  rating: number
+  comment: string
+  createdAt?: string
+}
+
 export interface PractitionerAnalytics {
   dailyRevenue: number;
   weeklyRevenue: number;
@@ -303,6 +324,9 @@ export interface PractitionerAnalytics {
   totalSessionRevenue: number;
   totalProductRevenue: number;
   accumulatedRevenue: number;
+
+  productStarBreakdown?: StarRating;
+  practitionerStarBreakdown?: StarRating;
 }
 
 export interface PatientAnalytics {
@@ -350,6 +374,13 @@ apiClient.interceptors.response.use(
   }
 )
 
+// AI Recommendation API
+export const getAiRecommendation = async (data: any) => {
+  const response = await apiClient.post('/ai/recommendation', data);
+  return response.data;
+};
+
+   
 export const api = {
   async login(data: LoginRequest): Promise<AuthResponse> {
     const response = await apiClient.post('/auth/login', data)
@@ -420,12 +451,12 @@ export const api = {
   },
 
   async getUserBookings(clientId: number): Promise<Booking[]> {
-    const response = await apiClient.get(`/bookings/client/${clientId}`)
+    const response = await apiClient.get(`/bookings/client/${clientId}/history`)
     return response.data
   },
 
   async getPractitionerBookings(providerId: number): Promise<Booking[]> {
-    const response = await apiClient.get(`/bookings/provider/${providerId}`)
+    const response = await apiClient.get(`/bookings/provider/${providerId}/history`)
     return response.data
   },
 
@@ -580,12 +611,12 @@ export const api = {
 
   // Calendar sessions (all statuses — used exclusively by the calendar view)
   async getProviderCalendarSessions(providerId: number): Promise<Booking[]> {
-    const response = await apiClient.get(`/bookings/provider/${providerId}`)
+    const response = await apiClient.get(`/bookings/provider/${providerId}/history`)
     return response.data
   },
 
   async getClientCalendarSessions(clientId: number): Promise<Booking[]> {
-    const response = await apiClient.get(`/bookings/client/${clientId}`)
+    const response = await apiClient.get(`/bookings/client/${clientId}/history`)
     return response.data
   },
 
@@ -629,6 +660,17 @@ export const api = {
 
   async getPatientAnalytics(id: number): Promise<PatientAnalytics> {
     const response = await apiClient.get(`/analytics/patient/${id}`)
+    return response.data
+  },
+
+  // Practitioner Reviews
+  async addPractitionerReview(data: PractitionerReview): Promise<PractitionerReview> {
+    const response = await apiClient.post('/reviews/practitioner', data)
+    return response.data
+  },
+
+  async getPractitionerReviews(providerId: number): Promise<PractitionerReview[]> {
+    const response = await apiClient.get(`/reviews/practitioner/${providerId}`)
     return response.data
   },
 
@@ -797,7 +839,7 @@ export const api = {
       if (b.status !== 'CONFIRMED' && b.status !== 'ACCEPTED') return false;
       const sessionDate = new Date(`${b.sessionDate}T${b.startTime}`);
       const diff = sessionDate.getTime() - now.getTime();
-      return diff > 0 && diff < 24 * 60 * 60 * 1000; // Within next 24 hours
+      return diff > 0 && diff < 60 * 60 * 1000; // Within next 1 hour
     }).sort((a, b) => new Date(`${a.sessionDate}T${a.startTime}`).getTime() - new Date(`${b.sessionDate}T${b.startTime}`).getTime());
   }
 }

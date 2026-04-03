@@ -104,6 +104,11 @@ export function UserDashboard() {
   const [showNotifications, setShowNotifications] = useState(false)
   // Calendar: all statuses so completed sessions remain visible
   const [calendarSessions, setCalendarSessions] = useState<Booking[]>([])
+  const [showRatingModal, setShowRatingModal] = useState(false)
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
+  const [rating, setRating] = useState(5)
+  const [comment, setComment] = useState('')
+  const [submittingRating, setSubmittingRating] = useState(false)
 
   const unreadCount = notifications.filter(n => !n.read).length
 
@@ -116,6 +121,15 @@ export function UserDashboard() {
     const interval = setInterval(fetchData, 10000) // Poll every 10s for real-time updates
     return () => clearInterval(interval)
   }, [isEditing])
+
+  useEffect(() => {
+    if (message) {
+      const timer = setTimeout(() => {
+        setMessage('')
+      }, 4000)
+      return () => clearTimeout(timer)
+    }
+  }, [message])
 
   const fetchData = async () => {
     try {
@@ -177,10 +191,8 @@ export function UserDashboard() {
         setMessage(`Booking ${action === 'cancel' ? 'cancelled' : 'rejected'} successfully!`)
       }
       fetchData()
-      setTimeout(() => setMessage(''), 4000)
     } catch (err) {
       setMessage('Failed to update booking.')
-      setTimeout(() => setMessage(''), 4000)
     }
   }
 
@@ -210,11 +222,34 @@ export function UserDashboard() {
       setEditForm({ ...editForm, password: '', confirmPassword: '' })
       // Update localStorage name
       localStorage.setItem('userName', updated.name || profile?.name || '')
-      setTimeout(() => setMessage(''), 4000)
     } catch (err) {
       setMessage('Failed to update profile.')
     } finally {
       setUpdateLoading(false)
+    }
+  }
+
+  const handleSubmitRating = async () => {
+    if (!selectedBooking || !profile) return
+    setSubmittingRating(true)
+    try {
+      await api.addPractitionerReview({
+        clientId: profile.id,
+        providerId: selectedBooking.providerId,
+        bookingId: selectedBooking.id,
+        rating,
+        comment
+      })
+      setMessage('Rating submitted successfully!')
+      setShowRatingModal(false)
+      setComment('')
+      setRating(5)
+      fetchData()
+    } catch (err) {
+      console.error(err)
+      setMessage('Failed to submit rating. You might have already rated this session.')
+    } finally {
+      setSubmittingRating(false)
     }
   }
 
@@ -229,16 +264,77 @@ export function UserDashboard() {
 
   return (
     <>
+      <AnimatePresence>
+        {showRatingModal && selectedBooking && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 backdrop-blur-xl bg-slate-900/40">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-white rounded-[3rem] w-full max-w-lg overflow-hidden shadow-2xl border border-slate-100"
+            >
+              <div className="p-10">
+                <div className="flex items-center justify-between mb-8">
+                  <div>
+                    <h3 className="text-2xl font-black text-slate-900">Rate your Session</h3>
+                    <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">With {selectedBooking.providerName}</p>
+                  </div>
+                  <button onClick={() => setShowRatingModal(false)} className="p-3 bg-slate-50 text-slate-400 rounded-2xl hover:text-rose-500 transition-colors">
+                    <XCircle size={24} />
+                  </button>
+                </div>
+
+                <div className="space-y-8">
+                  <div className="flex justify-center gap-3">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        onClick={() => setRating(star)}
+                        className={`p-4 rounded-2xl transition-all ${rating >= star ? 'bg-amber-50 text-amber-500 scale-110' : 'bg-slate-50 text-slate-300'}`}
+                      >
+                        <Star size={32} fill={rating >= star ? 'currentColor' : 'none'} />
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="space-y-4">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Your Feedback</label>
+                    <textarea
+                      value={comment}
+                      onChange={(e) => setComment(e.target.value)}
+                      placeholder="Share your experience with this practitioner..."
+                      className="w-full h-32 p-6 bg-slate-50 rounded-3xl border border-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white text-sm font-medium transition-all"
+                    />
+                  </div>
+
+                  <button
+                    onClick={handleSubmitRating}
+                    disabled={submittingRating}
+                    className="w-full py-5 bg-brand-600 text-white rounded-[2rem] font-black shadow-xl shadow-brand-500/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
+                  >
+                    {submittingRating ? 'Submitting...' : 'Submit Review'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <SessionReminderBanner fetchReminders={() => api.getUpcomingSessions(profile.id, 'CLIENT')} /> 
       <DashboardLayout
         sidebarItems={[
           { label: 'Dashboard', active: activeTab === 'overview', path: '#', onClick: () => setActiveTab('overview'), icon: <LayoutDashboard size={20} /> },
+          { label: 'Sessions', active: activeTab === 'sessions', path: '#', onClick: () => setActiveTab('sessions'), icon: <Calendar size={20} /> },
           { label: 'My Activity', active: activeTab === 'activity', path: '#', onClick: () => setActiveTab('activity'), icon: <TrendingUp size={20} /> },
           { label: 'Find my Practitioner', path: '/marketplace', icon: <Compass size={20} /> },
           { label: 'Products', path: '/products', icon: <ShoppingBag size={20} /> },
           { label: 'Cart', path: '/cart', icon: <ShoppingCart size={20} /> },
           { label: 'Wishlist', path: '/wishlist', icon: <Bookmark size={20} /> },
           { label: 'Orders', path: '/product-orders', icon: <ClipboardList size={20} /> },
+
+    // ⭐ NEW FEATURE
+    { label: 'AI Recommendation', path: '/ai-recommendation', icon: <Sparkles size={20} /> },
           { label: 'Profile', active: activeTab === 'profile', path: '#', onClick: () => setActiveTab('profile'), icon: <User size={20} /> },
           { label: 'Community Forum', path: '/forum', icon: <MessageSquare size={20} /> },
         ]}
@@ -787,6 +883,17 @@ export function UserDashboard() {
                             <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase border shadow-sm ${getBookingStatusClasses(getBookingStatus(booking))}`}>
                               {booking.status === 'COMPLETED' || booking.status === 'NOT_COMPLETED' ? booking.status.replace('_', ' ') : getBookingStatus(booking)}
                             </span>
+                            {booking.status === 'COMPLETED' && (
+                              <button
+                                onClick={() => {
+                                  setSelectedBooking(booking)
+                                  setShowRatingModal(true)
+                                }}
+                                className="mt-2 px-4 py-1.5 bg-brand-50 text-brand-600 text-[10px] font-black rounded-full border border-brand-100 hover:bg-brand-600 hover:text-white transition-all shadow-sm"
+                              >
+                                Rate Session
+                              </button>
+                            )}
                             {booking.sessionFee != null && Number(booking.sessionFee) > 0 && (
                               <span className="text-xs font-black text-slate-500">
                                 ₹ {Number(booking.sessionFee).toLocaleString()} paid

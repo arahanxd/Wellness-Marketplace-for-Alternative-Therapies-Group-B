@@ -34,6 +34,15 @@ export function PractitionerProductManager() {
     fetchData()
   }, [productId])
 
+  useEffect(() => {
+    if (message) {
+      const timer = setTimeout(() => {
+        setMessage(null)
+      }, 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [message])
+
   const fetchData = async () => {
     try {
       const userProfile = await api.getProfile()
@@ -89,8 +98,6 @@ export function PractitionerProductManager() {
 
       setMessage({ text: 'Product updated successfully!', type: 'success' })
       fetchData()
-
-      setTimeout(() => setMessage(null), 3000)
 
     } catch (err) {
       setMessage({ text: 'Update failed.', type: 'error' })

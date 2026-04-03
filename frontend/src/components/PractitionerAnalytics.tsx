@@ -11,6 +11,7 @@ interface Props {
     loading: boolean;
 }
 
+
 const formatCurrency = (amount: number | string) => {
     const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
     return new Intl.NumberFormat('en-IN', {
@@ -50,6 +51,79 @@ const StatCard = ({ label, value, growth, icon, delay }: any) => (
         </div>
     </motion.div>
 );
+
+interface RatingDistributionProps {
+    title: string;
+    description: string;
+    stats?: {
+        oneStar: number;
+        twoStar: number;
+        threeStar: number;
+        fourStar: number;
+        fiveStar: number;
+        totalReviews: number;
+    };
+    color: string;
+}
+
+const RatingDistribution = ({ title, description, stats, color }: RatingDistributionProps) => {
+    if (!stats || stats.totalReviews === 0) {
+        return (
+             <div className="bg-white p-10 rounded-[3.5rem] border border-slate-100 shadow-xl shadow-brand-500/5 flex flex-col items-center justify-center min-h-[400px]">
+                <div className={`p-6 rounded-full mb-4 bg-${color}-50 text-${color}-500/30`}>
+                    <Activity size={32} />
+                </div>
+                <h4 className="text-lg font-black text-slate-900">{title} Breakdown</h4>
+                <p className="text-xs text-slate-400 font-medium">{description}</p>
+            </div>
+        );
+    }
+
+    const ratings = [
+        { stars: 5, count: stats.fiveStar },
+        { stars: 4, count: stats.fourStar },
+        { stars: 3, count: stats.threeStar },
+        { stars: 2, count: stats.twoStar },
+        { stars: 1, count: stats.oneStar },
+    ];
+
+    return (
+        <div className="bg-white p-10 rounded-[3.5rem] border border-slate-100 shadow-xl shadow-brand-500/5 transition-all hover:border-brand-200">
+            <div className="flex items-center justify-between mb-8">
+                <div>
+                    <h4 className="text-lg font-black text-slate-900">{title} Breakdown</h4>
+                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{description}</p>
+                </div>
+                <div className="text-right">
+                    <p className="text-2xl font-black text-slate-900">{stats.totalReviews}</p>
+                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Total Ratings</p>
+                </div>
+            </div>
+
+            <div className="space-y-4">
+                {ratings.map((rating) => {
+                    const percentage = stats.totalReviews > 0 ? (rating.count / stats.totalReviews) * 100 : 0;
+                    return (
+                        <div key={rating.stars} className="space-y-1.5">
+                            <div className="flex items-center justify-between text-[11px] font-black uppercase tracking-tighter">
+                                <span className="text-slate-500">{rating.stars} Stars</span>
+                                <span className="text-slate-900">{rating.count}</span>
+                            </div>
+                            <div className="h-2 bg-slate-50 rounded-full overflow-hidden border border-slate-100">
+                                <motion.div
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${percentage}%` }}
+                                    transition={{ duration: 1, delay: 0.2 }}
+                                    className={`h-full rounded-full bg-${color}-500`}
+                                />
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+};
 
 export const PractitionerAnalytics: React.FC<Props> = ({ data, loading }) => {
     if (loading || !data) {
@@ -141,6 +215,34 @@ export const PractitionerAnalytics: React.FC<Props> = ({ data, loading }) => {
                         growth={data.yearlyGrowthPercent ?? 0}
                         icon={<TrendingUp size={20} />}
                         delay={0.4}
+                    />
+                </div>
+            </section>
+
+            {/* Rating Distribution Section */}
+            <section>
+                <div className="flex items-center gap-4 mb-8 pl-1">
+                    <div className="p-3 bg-brand-500 rounded-2xl text-white shadow-xl shadow-brand-500/20">
+                        <Activity size={24} />
+                    </div>
+                    <div>
+                        <h2 className="text-2xl font-black text-slate-900">Rating Analytics</h2>
+                        <p className="text-sm text-slate-400 font-bold uppercase tracking-widest">Customer satisfaction metrics</p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <RatingDistribution
+                        title="Service Ratings"
+                        description="Ratings from completed sessions"
+                        stats={data.practitionerStarBreakdown}
+                        color="brand"
+                    />
+                    <RatingDistribution
+                        title="Product Ratings"
+                        description="Ratings from product purchases"
+                        stats={data.productStarBreakdown}
+                        color="violet"
                     />
                 </div>
             </section>

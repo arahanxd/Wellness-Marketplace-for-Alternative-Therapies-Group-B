@@ -62,4 +62,10 @@ public class OrderEntity {
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "delivery_date")
+    private LocalDateTime deliveryDate;
+
+    @Column(name = "notification_sent", nullable = false)
+    private boolean notificationSent = false;
 }

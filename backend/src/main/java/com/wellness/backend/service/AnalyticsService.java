@@ -22,6 +22,7 @@ public class AnalyticsService {
 
     private final BookingRepository bookingRepository;
     private final OrderRepository orderRepository;
+    private final com.wellness.backend.service.PractitionerReviewService practitionerReviewService;
 
     public PractitionerAnalyticsDTO getPractitionerAnalytics(Long practitionerId) {
         LocalDate today = LocalDate.now();
@@ -93,6 +94,8 @@ public class AnalyticsService {
                 .totalSessionRevenue(totalSessionAllTime)
                 .totalProductRevenue(totalProductAllTime)
                 .accumulatedRevenue(totalAllTime)
+                .productStarBreakdown(practitionerReviewService.getProductStarBreakdown(practitionerId))
+                .practitionerStarBreakdown(practitionerReviewService.getPractitionerStarBreakdown(practitionerId))
                 .build();
     }
 
@@ -102,7 +105,7 @@ public class AnalyticsService {
         LocalDate yearStart = today.with(TemporalAdjusters.firstDayOfYear());
 
         long sessionsAttended = bookingRepository.countByClient_IdAndStatusIn(userId, 
-                List.of(SessionStatus.ACCEPTED, SessionStatus.CONFIRMED, SessionStatus.COMPLETED));
+                List.of(SessionStatus.ACCEPTED, SessionStatus.CONFIRMED, SessionStatus.COMPLETED, SessionStatus.PENDING_COMPLETION_ACTION));
 
         BigDecimal totalSessionSpent = orZero(bookingRepository.sumTotalSessionSpentByPatient(userId));
         BigDecimal totalProductSpent = orZero(orderRepository.sumTotalProductSpentByPatient(userId));

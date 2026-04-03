@@ -64,6 +64,15 @@ export function ProductDetailPage() {
         }
     }, [productId])
 
+    useEffect(() => {
+        if (feedback) {
+            const timer = setTimeout(() => {
+                setFeedback(null)
+            }, 3000)
+            return () => clearTimeout(timer)
+        }
+    }, [feedback])
+
     const fetchData = async (id: number) => {
         setLoading(true)
         try {
@@ -109,10 +118,8 @@ export function ProductDetailPage() {
         try {
             await api.addToCart(product.productId, quantity)
             setFeedback({ message: 'Added to cart!', type: 'success' })
-            setTimeout(() => setFeedback(null), 3000)
         } catch (err) {
             setFeedback({ message: 'Failed to add to cart.', type: 'error' })
-            setTimeout(() => setFeedback(null), 3000)
         } finally {
             setIsSubmitting(false)
         }
@@ -139,10 +146,8 @@ export function ProductDetailPage() {
             await api.addItemToWishlist(wishlistId, product.productId)
             setFeedback({ message: 'Added to wishlist!', type: 'success' })
             setIsWishlistModalOpen(false)
-            setTimeout(() => setFeedback(null), 3000)
         } catch (err) {
             setFeedback({ message: 'Failed to add to wishlist.', type: 'error' })
-            setTimeout(() => setFeedback(null), 3000)
         } finally {
             setIsSubmitting(false)
         }
@@ -158,10 +163,8 @@ export function ProductDetailPage() {
             setNewWishlistName('')
             setIsCreatingWishlist(false)
             fetchWishlists()
-            setTimeout(() => setFeedback(null), 3000)
         } catch (err) {
             setFeedback({ message: 'Failed to create wishlist.', type: 'error' })
-            setTimeout(() => setFeedback(null), 3000)
         } finally {
             setIsSubmitting(false)
         }
@@ -191,10 +194,8 @@ export function ProductDetailPage() {
             const updatedRevs = await api.getReviews(product.productId)
             setReviews(updatedRevs)
             setReviewForm({ rating: 5, title: '', description: '' })
-            setTimeout(() => setFeedback(null), 3000)
         } catch (err: any) {
             setFeedback({ message: err.response?.data?.message || 'Failed to post review.', type: 'error' })
-            setTimeout(() => setFeedback(null), 3000)
         } finally {
             setIsSubmitting(false)
         }
@@ -214,10 +215,8 @@ export function ProductDetailPage() {
             const updatedQas = await api.getQuestions(product.productId)
             setQuestions(updatedQas)
             setQuestionContent('')
-            setTimeout(() => setFeedback(null), 3000)
         } catch (err) {
             setFeedback({ message: 'Failed to post question.', type: 'error' })
-            setTimeout(() => setFeedback(null), 3000)
         } finally {
             setIsSubmitting(false)
         }
@@ -238,10 +237,8 @@ export function ProductDetailPage() {
             const updatedQas = await api.getQuestions(product!.productId!)
             setQuestions(updatedQas)
             setAnswerContent(prev => ({ ...prev, [questionId]: '' }))
-            setTimeout(() => setFeedback(null), 3000)
         } catch (err: any) {
             setFeedback({ message: err.response?.data?.message || 'Failed to post answer.', type: 'error' })
-            setTimeout(() => setFeedback(null), 3000)
         } finally {
             setIsSubmitting(false)
         }
@@ -262,10 +259,8 @@ export function ProductDetailPage() {
                 entityType: reportConfig.entityType
             })
             setFeedback({ message: 'Report submitted successfully.', type: 'success' })
-            setTimeout(() => setFeedback(null), 3000)
         } catch (err) {
             setFeedback({ message: 'Failed to submit report.', type: 'error' })
-            setTimeout(() => setFeedback(null), 3000)
         } finally {
             setReportConfig(null)
             setIsSubmitting(false)

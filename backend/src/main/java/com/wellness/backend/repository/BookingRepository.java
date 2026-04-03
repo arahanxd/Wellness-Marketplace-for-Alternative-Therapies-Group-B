@@ -61,25 +61,25 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     // Analytics Queries
     @Query("SELECT SUM(s.provider.sessionFee) FROM Booking s WHERE s.provider.id = :providerId " +
             "AND s.sessionDate BETWEEN :startDate AND :endDate " +
-            "AND s.status = com.wellness.backend.model.SessionStatus.COMPLETED")
+            "AND s.status IN (com.wellness.backend.model.SessionStatus.COMPLETED, com.wellness.backend.model.SessionStatus.PENDING_COMPLETION_ACTION)")
     BigDecimal sumSessionRevenueByPractitionerAndDateRange(
             @Param("providerId") Long providerId,
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate);
 
     @Query("SELECT SUM(s.provider.sessionFee) FROM Booking s WHERE s.provider.id = :providerId " +
-            "AND s.status = com.wellness.backend.model.SessionStatus.COMPLETED")
+            "AND s.status IN (com.wellness.backend.model.SessionStatus.COMPLETED, com.wellness.backend.model.SessionStatus.PENDING_COMPLETION_ACTION)")
     BigDecimal sumTotalSessionRevenueByPractitioner(@Param("providerId") Long providerId);
 
     long countByClient_IdAndStatusIn(Long clientId, List<SessionStatus> statuses);
 
     @Query("SELECT SUM(s.provider.sessionFee) FROM Booking s WHERE s.client.id = :clientId " +
-            "AND s.status = com.wellness.backend.model.SessionStatus.COMPLETED")
+            "AND s.status IN (com.wellness.backend.model.SessionStatus.COMPLETED, com.wellness.backend.model.SessionStatus.PENDING_COMPLETION_ACTION)")
     BigDecimal sumTotalSessionSpentByPatient(@Param("clientId") Long clientId);
 
     @Query("SELECT SUM(s.provider.sessionFee) FROM Booking s WHERE s.client.id = :clientId " +
             "AND s.sessionDate BETWEEN :startDate AND :endDate " +
-            "AND s.status = com.wellness.backend.model.SessionStatus.COMPLETED")
+            "AND s.status IN (com.wellness.backend.model.SessionStatus.COMPLETED, com.wellness.backend.model.SessionStatus.PENDING_COMPLETION_ACTION)")
     BigDecimal sumSessionSpentByPatientAndDateRange(
             @Param("clientId") Long clientId,
             @Param("startDate") LocalDate startDate,

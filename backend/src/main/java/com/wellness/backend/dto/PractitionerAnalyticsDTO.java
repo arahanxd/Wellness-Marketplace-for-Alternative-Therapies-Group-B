@@ -33,4 +33,7 @@ public class PractitionerAnalyticsDTO {
     private BigDecimal totalSessionRevenue;
     private BigDecimal totalProductRevenue;
     private BigDecimal accumulatedRevenue;
+
+    private StarRatingDTO productStarBreakdown;
+    private StarRatingDTO practitionerStarBreakdown;
 }

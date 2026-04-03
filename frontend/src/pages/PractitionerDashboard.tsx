@@ -43,10 +43,11 @@ function VerificationStatusBadge({ status }: { status?: string }) {
   )
 }
 
-const getSessionStatus = (booking: Booking): 'Pending' | 'Ongoing' | 'Completed' | 'Upcoming' | 'Not Completed' | 'Cancelled' | 'Rejected' | 'Refunded' => {
+const getSessionStatus = (booking: Booking): 'Pending' | 'Ongoing' | 'Completed' | 'Upcoming' | 'Not Completed' | 'Cancelled' | 'Rejected' | 'Refunded' | 'Awaiting Action' => {
   const { sessionDate, startTime, duration, status } = booking
   if (status === 'COMPLETED') return 'Completed'
-  if (status === 'PENDING_COMPLETION_ACTION' || status === 'NOT_COMPLETED') return 'Not Completed'
+  if (status === 'PENDING_COMPLETION_ACTION') return 'Awaiting Action'
+  if (status === 'NOT_COMPLETED') return 'Not Completed'
   if (status === 'CANCELLED') return 'Cancelled'
   if (status === 'REJECTED') return 'Rejected'
   
@@ -66,6 +67,7 @@ const getSessionStatus = (booking: Booking): 'Pending' | 'Ongoing' | 'Completed'
 const getSessionStatusClasses = (status: ReturnType<typeof getSessionStatus>) => {
   if (status === 'Pending' || status === 'Upcoming') return 'bg-yellow-100 text-yellow-700'
   if (status === 'Ongoing') return 'bg-blue-100 text-blue-700'
+  if (status === 'Awaiting Action') return 'bg-amber-100 text-amber-700 font-black animate-pulse'
   if (status === 'Not Completed') return 'bg-rose-100 text-rose-700 font-black'
   if (status === 'Cancelled' || status === 'Rejected') return 'bg-slate-100 text-slate-500 font-black'
   if (status === 'Refunded') return 'bg-amber-100 text-amber-700 font-black'
@@ -169,6 +171,7 @@ export function PractitionerDashboard() {
   const sidebarItems = [
     { label: 'Overview', onClick: () => setActiveTab('overview'), active: activeTab === 'overview', icon: <LayoutDashboard size={20} /> },
     { label: 'Booking Requests', onClick: () => setActiveTab('requests'), active: activeTab === 'requests', icon: <Calendar size={20} /> },
+    { label: 'Sessions', onClick: () => setActiveTab('sessions'), active: activeTab === 'sessions', icon: <ClipboardList size={20} /> },
     { label: 'Calendar', onClick: () => setActiveTab('calendar'), active: activeTab === 'calendar', icon: <Calendar size={20} /> },
     { label: 'Availability', onClick: () => setActiveTab('availability' as any), active: activeTab === ('availability' as any), icon: <Activity size={20} /> },
     { label: 'Analytics', onClick: () => setActiveTab('analytics'), active: activeTab === 'analytics', icon: <TrendingUp size={20} /> },
@@ -189,6 +192,15 @@ export function PractitionerDashboard() {
     }, 10000); // Poll every 10s
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (message) {
+      const timer = setTimeout(() => {
+        setMessage('');
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [message]);
 
   const fetchProfile = async () => {
     try {
@@ -314,6 +326,22 @@ export function PractitionerDashboard() {
     } catch (err) {
       console.error(err);
       setMessage('Failed to update session status');
+    } finally {
+      setSessionActionLoadingId(null);
+    }
+  };
+
+  const cancelSessionByProvider = async (booking: Booking) => {
+    if (!booking?.id) return;
+    if (!window.confirm(`Cancel session with ${booking.clientName || 'this patient'}?`)) return;
+    setSessionActionLoadingId(booking.id);
+    try {
+      await api.cancelBooking(booking.id);
+      setBookings((prev) => prev.map((b) => b.id === booking.id ? { ...b, status: 'CANCELLED' as any } : b));
+      setMessage('Session cancelled successfully');
+    } catch (err) {
+      console.error(err);
+      setMessage('Failed to cancel session');
     } finally {
       setSessionActionLoadingId(null);
     }
@@ -480,7 +508,6 @@ export function PractitionerDashboard() {
       setProfile({ ...profile, ...updated });
       setEditForm({ ...editForm, password: '', confirmPassword: '' } as any);
       localStorage.setItem('userName', updated.name || profile.name || '');
-      setTimeout(() => setMessage(''), 3000);
     } catch (err) {
       console.error(err);
       setMessage('Failed to update profile');
@@ -502,7 +529,6 @@ export function PractitionerDashboard() {
       await api.uploadDegree(degreeFile, profile.id);
       setMessage('Degree uploaded successfully');
       fetchProfile();
-      setTimeout(() => setMessage(''), 3000);
     } catch (err) {
       console.error(err);
       setMessage('Failed to upload degree');
@@ -921,7 +947,135 @@ export function PractitionerDashboard() {
             )}
 
             {activeTab === 'sessions' && (
-              <motion.div key="sessions" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+              <motion.div key="sessions" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-8">
+                {/* Header */}
+                <motion.header
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-gradient-to-r from-brand-600 to-violet-600 p-10 rounded-[2.5rem] shadow-xl shadow-brand-500/20 text-white"
+                >
+                  <div>
+                    <h2 className="text-3xl md:text-4xl font-black tracking-tight mb-2">
+                      Session <span className="text-white/80">Management</span>
+                    </h2>
+                    <p className="text-white/70 flex items-center gap-2 font-medium">
+                      <ClipboardList size={16} /> View, manage and act on all your sessions.
+                    </p>
+                  </div>
+                </motion.header>
+
+                {/* ── Upcoming & Active Sessions ── */}
+                <section className="bg-white p-10 rounded-[3rem] border border-brand-100/50 shadow-xl shadow-brand-500/5">
+                  <div className="flex items-center justify-between mb-8">
+                    <h3 className="text-2xl font-black flex items-center gap-3 text-slate-900">
+                      <Calendar size={24} className="text-brand-600" /> Upcoming & Active Sessions
+                    </h3>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      {bookings.filter(b => { const s = getSessionStatus(b); return s === 'Upcoming' || s === 'Ongoing' || s === 'Pending'; }).length} sessions
+                    </span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    {bookings.filter(b => { const s = getSessionStatus(b); return s === 'Upcoming' || s === 'Ongoing' || s === 'Pending'; }).length > 0 ? (
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="border-b border-slate-100">
+                            <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-slate-400 pl-4">Patient</th>
+                            <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Date</th>
+                            <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Time / Duration</th>
+                            <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Fee</th>
+                            <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
+                            <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right pr-4">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                          {bookings
+                            .filter(b => { const s = getSessionStatus(b); return s === 'Upcoming' || s === 'Ongoing' || s === 'Pending'; })
+                            .slice().sort((a, b) => new Date(a.sessionDate).getTime() - new Date(b.sessionDate).getTime())
+                            .map((booking, idx) => {
+                              const status = getSessionStatus(booking);
+                              return (
+                                <motion.tr
+                                  key={booking.id ?? idx}
+                                  initial={{ opacity: 0, y: 5 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  transition={{ delay: idx * 0.04 }}
+                                  className="group hover:bg-slate-50/50 transition-colors"
+                                >
+                                  <td className="py-4 pl-4">
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-9 h-9 rounded-xl bg-brand-50 flex items-center justify-center text-brand-600 font-black text-xs flex-shrink-0">
+                                        {booking.clientName?.[0] ?? 'P'}
+                                      </div>
+                                      <div>
+                                        <p className="text-xs font-extrabold text-slate-900">{booking.clientName || 'Patient'}</p>
+                                        {booking.clientEmail && <p className="text-[10px] text-slate-400">{booking.clientEmail}</p>}
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="py-4 text-xs font-bold text-slate-900">{formatDateToIndian(booking.sessionDate)}</td>
+                                  <td className="py-4 text-xs font-bold text-slate-600">
+                                    {booking.startTime || 'N/A'}
+                                    {booking.duration && <span className="block text-[10px] text-slate-400 font-medium">{booking.duration} mins</span>}
+                                  </td>
+                                  <td className="py-4">
+                                    {booking.sessionFee != null ? (
+                                      <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded-xl text-xs font-black">
+                                        ₹ {Number(booking.sessionFee).toLocaleString()}
+                                      </span>
+                                    ) : <span className="text-slate-400 text-xs">N/A</span>}
+                                  </td>
+                                  <td className="py-4">
+                                    <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${getSessionStatusClasses(status)}`}>{status}</span>
+                                  </td>
+                                  <td className="py-4 pr-4">
+                                    <div className="flex justify-end gap-2">
+                                      {(booking.status === 'PENDING' || booking.status === 'CONFIRMED' || booking.status === 'ACCEPTED') && (
+                                        <button
+                                          onClick={() => cancelSessionByProvider(booking)}
+                                          disabled={sessionActionLoadingId === booking.id}
+                                          className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-rose-600 transition-colors flex items-center gap-1 bg-slate-50 hover:bg-rose-50 px-3 py-1.5 rounded-lg border border-slate-100 hover:border-rose-100 disabled:opacity-50"
+                                        >
+                                          <XCircle size={11} />
+                                          {sessionActionLoadingId === booking.id ? '...' : 'Cancel'}
+                                        </button>
+                                      )}
+                                      {status === 'Ongoing' && (
+                                        <>
+                                          <button
+                                            onClick={() => completeBooking(booking)}
+                                            disabled={sessionActionLoadingId === booking.id}
+                                            className="text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:text-emerald-700 flex items-center gap-1 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-100 disabled:opacity-50"
+                                          >
+                                            <CheckCircle2 size={11} />
+                                            {sessionActionLoadingId === booking.id ? '...' : 'Complete'}
+                                          </button>
+                                          <button
+                                            onClick={() => markSessionNotCompleted(booking)}
+                                            disabled={sessionActionLoadingId === booking.id}
+                                            className="text-[10px] font-black uppercase tracking-widest text-rose-600 hover:text-rose-700 flex items-center gap-1 bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-100 disabled:opacity-50"
+                                          >
+                                            <XCircle size={11} />
+                                            {sessionActionLoadingId === booking.id ? '...' : 'Not Done'}
+                                          </button>
+                                        </>
+                                      )}
+                                    </div>
+                                  </td>
+                                </motion.tr>
+                              );
+                            })}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <div className="py-16 text-center">
+                        <Calendar size={40} className="mx-auto text-slate-200 mb-4" />
+                        <p className="text-slate-400 font-black uppercase tracking-widest text-[10px]">No active or upcoming sessions</p>
+                      </div>
+                    )}
+                  </div>
+                </section>
+
+                {/* ── Session History ── */}
                 <section className="bg-white p-10 rounded-[3rem] border border-brand-100/50 shadow-xl shadow-brand-500/5">
                   <div className="flex items-center justify-between mb-8">
                     <h3 className="text-2xl font-black flex items-center gap-3 text-slate-900">
@@ -946,7 +1100,7 @@ export function PractitionerDashboard() {
                           {bookings
                             .filter(b => {
                               const s = getSessionStatus(b);
-                              return s === 'Completed' || s === 'Not Completed' || s === 'Cancelled' || s === 'Rejected' || s === 'Refunded';
+                              return s === 'Completed' || s === 'Awaiting Action' || s === 'Not Completed' || s === 'Cancelled' || s === 'Rejected' || s === 'Refunded';
                             })
                             .slice()
                             .sort((a, b) => new Date(b.sessionDate).getTime() - new Date(a.sessionDate).getTime())
@@ -995,7 +1149,7 @@ export function PractitionerDashboard() {
                                     {!booking.description && !booking.providerMessage && <span className="italic">-</span>}
                                   </td>
                                   <td className="py-4 pr-4 text-right">
-                                    {booking.status !== 'COMPLETED' && booking.status !== 'NOT_COMPLETED' && status === 'Completed' && (
+                                    {(booking.status === 'PENDING_COMPLETION_ACTION' || (booking.status !== 'COMPLETED' && booking.status !== 'NOT_COMPLETED' && booking.status !== 'CANCELLED' && booking.status !== 'REJECTED' && status === 'Completed')) && (
                                       <div className="flex justify-end gap-3">
                                         <button
                                           onClick={() => completeBooking(booking)}
@@ -1533,7 +1687,6 @@ export function PractitionerDashboard() {
                                       await api.deleteProduct(p.productId!, profile!.id);
                                       setProducts(prev => prev.filter(x => x.productId !== p.productId));
                                       setMessage('Product deleted');
-                                      setTimeout(() => setMessage(''), 3000);
                                     } catch (err) {
                                       console.error(err);
                                       setMessage('Failed to delete');

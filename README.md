@@ -85,6 +85,15 @@ This project focuses on building a **secure wellness marketplace platform** that
 * Interactive community forum for Q&A and discussions
 * Product reviews and rating system
 
+# 🚀 Milestone 4 (Week 7–8)
+
+## Implemented
+
+* AI-powered recommendations based on user symptoms and health inputs
+* Integration with external APIs such as OpenFDA, WHO, and fitness tracking services
+* Smart notification system for real-time updates
+* Analytics dashboard for tracking user activity, bookings, and product interactions
+
 ---
 
 # 🛠️ Tech Stack
@@ -194,6 +203,9 @@ SENDGRID_API_KEY=your_sendgrid_api_key
 SMTP_USERNAME=your_email@example.com
 SMTP_PASSWORD=your_password
 
+# Gemini (AI Integration)
+gemini.api.key=your_gemini_api_key_here
+
 Instructions:
 1) Copy `.env.example` → `.env`
 2) Fill in your real credentials
@@ -264,14 +276,18 @@ Update backend/.env or application.properties with your credentials if different
 │   │   │   │   ├── scheduler
 │   │   │   │   ├── service
 │   │   │   │   ├── user
-│   │   │   │   └── util
+│   │   │   │   ├── util
+│   │   │   │   └── WellnessBackendApplication.java
 │   │   │   └── resources
 │   │   │       ├── application.properties
 │   │   │       ├── data.sql
 │   │   │       ├── db/migration
 │   │   │       ├── schema.sql
 │   │   │       └── session_booking_schema.sql
-│   └── pom.xml
+│   ├── .env
+│   ├── .env.example
+│   ├── pom.xml
+│   └── uploads
 │
 ├── frontend
 │   ├── src
@@ -288,12 +304,17 @@ Update backend/.env or application.properties with your credentials if different
 │   │   ├── index.css
 │   │   └── main.tsx
 │   ├── index.html
-│   └── package.json
+│   ├── package.json
+│   ├── tailwind.config.js
+│   └── vite.config.ts
 │
 ├── .vscode
+├── .gitignore
+├── LICENSE
 ├── LICENSE.txt
 ├── README.md
 ├── TODO.md
+├── secrets.txt
 ├── test-booking.js
 └── wellness_marketplace.sql
 ```
@@ -332,6 +353,13 @@ Update backend/.env or application.properties with your credentials if different
 * Interactive community forum – Ask questions, share experiences, and engage with practitioners and other clients.
 * Product reviews and ratings system – Users can submit feedback and rate products to guide others.
 
+## Milestone 4
+
+* AI-powered recommendation system – Provides personalized therapy and product suggestions based on user symptoms and preferences.
+* External API integrations – Connected with OpenFDA, WHO, and fitness APIs to enhance health insights and recommendations.
+* Smart notification system – Real-time alerts for bookings, recommendations, and important user activities.
+* Analytics dashboard – Tracks user behavior, bookings, and product interactions with insightful visual data.
+
 ---
 
 # 📌 Upcoming Features
@@ -339,3 +367,4 @@ Update backend/.env or application.properties with your credentials if different
 * AI-powered symptom-based recommendations – Users receive personalized wellness and therapy suggestions based on their symptoms and health data.
 * Integration with external health and fitness APIs – Connect with OpenFDA, WHO, and fitness tracking services for enriched data and insights.
 * Smart notifications and analytics dashboard – Real-time updates for bookings, product recommendations, and user activity, plus insightful analytics for both clients and practitioners.
+* Wellness points system – Users earn reward points for bookings, purchases, and community engagement, which can be redeemed for discounts or exclusive services.

@@ -165,7 +165,28 @@ public class EmailService {
         }
     }
 
-    private void sendImmediateSendGridEmail(String to, String subject, String body) {
+    public void sendDeliveryNotification(String to, String name, String orderId, java.util.List<String> items, String deliveryAddress) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(String.format("Dear %s,\n\n", name));
+        sb.append("Exciting news! Your delivery from Wellness Hub is scheduled for TODAY.\n\n");
+        sb.append(String.format("Order ID: %s\n", orderId));
+        sb.append("Products being delivered:\n");
+        for (String item : items) {
+            sb.append(String.format("- %s\n", item));
+        }
+        sb.append(String.format("\nShipping to:\n%s\n\n", deliveryAddress));
+        sb.append("Please ensure someone is available to receive the package.\n\n");
+        sb.append("Warm regards,\nWellness Hub Team");
+
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(fromEmail);
+        message.setTo(to);
+        message.setSubject("🚚 Wellness Hub - Your Delivery is Arriving Today!");
+        message.setText(sb.toString());
+        sendEmail(message);
+    }
+
+    public void sendImmediateSendGridEmail(String to, String subject, String body) {
         if (apiKey == null || apiKey.isBlank()) return;
         Email from = new Email(fromEmail);
         Email recipient = new Email(to);

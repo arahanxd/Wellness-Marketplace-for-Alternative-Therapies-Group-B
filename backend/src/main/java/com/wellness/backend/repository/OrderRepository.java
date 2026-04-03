@@ -34,4 +34,7 @@ public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
             java.time.LocalDateTime end);
 
     List<OrderEntity> findTop5ByUser_IdOrderByOrderDateDesc(Long userId);
+
+    @Query("SELECT o FROM OrderEntity o WHERE o.deliveryDate >= :start AND o.deliveryDate <= :end AND o.notificationSent = false")
+    List<OrderEntity> findByDeliveryDateBetweenAndNotificationSentFalse(java.time.LocalDateTime start, java.time.LocalDateTime end);
 }

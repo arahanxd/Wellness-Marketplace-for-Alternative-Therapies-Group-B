@@ -32,6 +32,7 @@ public class OrderService {
         private final ProductRepository productRepository;
         private final UserRepository userRepository;
         private final BookingRepository bookingRepository;
+        private final EmailService emailService;
 
         public List<OrderDTO> getOrdersByUserId(Long userId) {
                 return orderRepository.findByUser_Id(userId).stream()
@@ -84,6 +85,7 @@ public class OrderService {
                 order.setShippingPhone(request.getShippingPhone() != null ? request.getShippingPhone()
                                 : user.getPhoneNumber());
                 order.setCommonOrderId(request.getCommonOrderId());
+                order.setDeliveryDate(LocalDateTime.now().plusDays(3));
 
                 OrderEntity savedOrder = orderRepository.save(order);
 
@@ -129,9 +131,46 @@ public class OrderService {
                                 .build();
         }
 
+        public void processDeliveryNotifications() {
+                LocalDateTime startOfDay = LocalDateTime.now().withHour(0).withMinute(0).withSecond(0).withNano(0);
+                LocalDateTime endOfDay = LocalDateTime.now().withHour(23).withMinute(59).withSecond(59).withNano(999999999);
+
+                List<OrderEntity> ordersDueToday = orderRepository.findByDeliveryDateBetweenAndNotificationSentFalse(startOfDay, endOfDay);
+
+                if (ordersDueToday.isEmpty()) {
+                        return;
+                }
+
+                // Group by User Email and Common Order ID
+                Map<String, Map<String, List<OrderEntity>>> groupedOrders = ordersDueToday.stream()
+                                .collect(Collectors.groupingBy(
+                                                o -> o.getUser().getEmail(),
+                                                Collectors.groupingBy(o -> o.getCommonOrderId() != null ? o.getCommonOrderId() : "SINGLE_" + o.getOrderId())));
+
+                for (Map.Entry<String, Map<String, List<OrderEntity>>> userEntry : groupedOrders.entrySet()) {
+                        String userEmail = userEntry.getKey();
+                        for (Map.Entry<String, List<OrderEntity>> orderEntry : userEntry.getValue().entrySet()) {
+                                String commonOrderId = orderEntry.getKey();
+                                List<OrderEntity> orderProducts = orderEntry.getValue();
+                                String userName = orderProducts.get(0).getUser().getName();
+                                String shippingAddress = orderProducts.get(0).getShippingAddress();
+
+                                List<String> productSummaries = orderProducts.stream()
+                                                .map(o -> o.getProduct().getName() + " (Qty: " + o.getQuantity() + ")")
+                                                .collect(Collectors.toList());
+
+                                emailService.sendDeliveryNotification(userEmail, userName, commonOrderId, productSummaries, shippingAddress);
+
+                                // Mark as sent
+                                orderProducts.forEach(o -> o.setNotificationSent(true));
+                                orderRepository.saveAll(orderProducts);
+                        }
+                }
+        }
+
         private OrderDTO toOrderDto(OrderEntity order) {
                 LocalDateTime createdAt = order.getCreatedAt() != null ? order.getCreatedAt() : order.getOrderDate();
-                LocalDateTime deliveryDate = createdAt.plusDays(3);
+                LocalDateTime deliveryDate = order.getDeliveryDate() != null ? order.getDeliveryDate() : createdAt.plusDays(3);
                 String deliveryStatus = LocalDateTime.now().isAfter(deliveryDate) ? "DELIVERED" : "PROCESSING";
 
                 String productImg = order.getProduct().getImageUrl();

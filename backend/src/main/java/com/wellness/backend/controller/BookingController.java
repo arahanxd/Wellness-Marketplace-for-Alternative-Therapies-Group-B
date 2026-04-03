@@ -84,4 +84,16 @@ public class BookingController {
     public ResponseEntity<BookingResponseDTO> cancelSession(@PathVariable Long id, Principal principal) {
         return ResponseEntity.ok(bookingService.cancelBooking(id, principal.getName()));
     }
+
+    @GetMapping("/provider/{providerId}/history")
+    @PreAuthorize("hasRole('PROVIDER')")
+    public ResponseEntity<List<BookingResponseDTO>> getSessionsHistoryForProvider(@PathVariable Long providerId) {
+        return ResponseEntity.ok(bookingService.getSessionsHistoryForProvider(providerId));
+    }
+
+    @GetMapping("/client/{clientId}/history")
+    @PreAuthorize("hasRole('CLIENT')")
+    public ResponseEntity<List<BookingResponseDTO>> getSessionsHistoryForClient(@PathVariable Long clientId) {
+        return ResponseEntity.ok(bookingService.getSessionsHistoryForClient(clientId));
+    }
 }

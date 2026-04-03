@@ -34,6 +34,15 @@ export function MyProductsPage() {
 
     useEffect(() => { fetchData() }, [])
 
+    useEffect(() => {
+        if (message) {
+            const timer = setTimeout(() => {
+                setMessage(null)
+            }, 3000)
+            return () => clearTimeout(timer)
+        }
+    }, [message])
+
     const fetchData = async () => {
         try {
             const userProfile = await api.getProfile()
@@ -116,7 +125,6 @@ export function MyProductsPage() {
             }
             setIsModalOpen(false)
             fetchData()
-            setTimeout(() => setMessage(null), 3000)
         } catch (err) {
             setMessage({ text: 'Operation failed. Please try again.', type: 'error' })
         } finally {
@@ -130,7 +138,6 @@ export function MyProductsPage() {
             await api.deleteProduct(id, profile.id)
             setMessage({ text: 'Product deleted.', type: 'success' })
             fetchData()
-            setTimeout(() => setMessage(null), 3000)
         } catch (err) {
             setMessage({ text: 'Failed to delete.', type: 'error' })
         }

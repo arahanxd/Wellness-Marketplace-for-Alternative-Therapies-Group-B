@@ -33,6 +33,15 @@ export function MarketplacePage() {
 
     useEffect(() => { fetchData(); }, []);
 
+    useEffect(() => {
+        if (message) {
+            const timer = setTimeout(() => {
+                setMessage('');
+            }, 4000);
+            return () => clearTimeout(timer);
+        }
+    }, [message]);
+
     const fetchData = async () => {
         setFetchLoading(true);
         try {
@@ -94,7 +103,6 @@ export function MarketplacePage() {
         if (!bookingPractitioner || !profile) return;
         if (!sessionDate || !selectedSlot) {
             setMessage('Please select a date and time slot.');
-            setTimeout(() => setMessage(''), 4000);
             return;
         }
         setLoading(true);
@@ -117,7 +125,6 @@ export function MarketplacePage() {
             setBookingDescription('');
             setSessionDate('');
             setSelectedSlot(null);
-            setTimeout(() => setMessage(''), 5000);
         } catch (err: any) {
             console.error(err);
             if (err.response?.status === 409) {
@@ -127,7 +134,6 @@ export function MarketplacePage() {
             } else {
                 setMessage('Failed to book session. Please try again.');
             }
-            setTimeout(() => setMessage(''), 5000);
         } finally {
             setLoading(false);
         }
@@ -148,10 +154,8 @@ export function MarketplacePage() {
                 entityType: 'PRACTITIONER'
             });
             setMessage('Report submitted. Thank you.');
-            setTimeout(() => setMessage(''), 3000);
         } catch (err) {
             setMessage('Failed to submit report.');
-            setTimeout(() => setMessage(''), 3000);
         } finally {
             setReportConfig(null);
         }

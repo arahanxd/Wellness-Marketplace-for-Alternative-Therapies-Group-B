@@ -10,6 +10,7 @@ interface Props {
 export function SessionReminderBanner({ fetchReminders }: Props) {
   const [visible, setVisible] = useState(false)
   const [nextSession, setNextSession] = useState<Booking | null>(null)
+  const [minutesLeft, setMinutesLeft] = useState<number | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -17,22 +18,35 @@ export function SessionReminderBanner({ fetchReminders }: Props) {
       try {
         const sessions = await fetchReminders()
         if (!cancelled && sessions.length > 0) {
-          setNextSession(sessions[0])
-          setVisible(true)
+          const session = sessions[0]
+          const sessionTime = new Date(`${session.sessionDate}T${session.startTime}`).getTime()
+          const now = new Date().getTime()
+          const diffMs = sessionTime - now
+          const diffMins = Math.round(diffMs / (60 * 1000))
+
+          if (diffMins > 0 && diffMins <= 60) {
+            setNextSession(session)
+            setMinutesLeft(diffMins)
+            setVisible(true)
+          } else {
+            setVisible(false)
+          }
         }
       } catch {
         // Ignore errors; banner is best-effort
       }
     }
     load()
+    const timer = setInterval(load, 30000) // update every 30s
     return () => {
       cancelled = true
+      clearInterval(timer)
     }
   }, [fetchReminders])
 
   return (
     <AnimatePresence>
-      {visible && nextSession && !localStorage.getItem(`dismissed-session-${nextSession.id}-${nextSession.sessionDate}-${nextSession.startTime}`) && (
+      {visible && nextSession && minutesLeft !== null && !localStorage.getItem(`dismissed-session-${nextSession.id}-${nextSession.sessionDate}-${nextSession.startTime}`) && (
         <motion.div
           initial={{ y: -40, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -49,7 +63,7 @@ export function SessionReminderBanner({ fetchReminders }: Props) {
                   Upcoming Session
                 </p>
                 <p className="font-bold text-sm">
-                  Your session starts in approximately 30 minutes.
+                  Your session starts in approximately {minutesLeft} {minutesLeft === 1 ? 'minute' : 'minutes'}.
                 </p>
                 <p className="text-[11px] text-slate-300 mt-0.5">
                   {nextSession.sessionDate} · {nextSession.startTime} – {nextSession.endTime} ·{' '}

@@ -33,6 +33,15 @@ export function QuestionDetailPage() {
     if (id) fetchData(parseInt(id))
   }, [id])
 
+  useEffect(() => {
+    if (message) {
+      const timer = setTimeout(() => {
+        setMessage(null)
+      }, 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [message])
+
   const fetchData = async (questionId: number) => {
     try {
       const [qData, pData] = await Promise.all([
@@ -91,10 +100,8 @@ export function QuestionDetailPage() {
       setMessage({ text: 'Answer posted successfully!', type: 'success' })
       setAnswerContent('')
       fetchData(question.questionId)
-      setTimeout(() => setMessage(null), 3000)
     } catch (err) {
       setMessage({ text: 'Failed to post answer.', type: 'error' })
-      setTimeout(() => setMessage(null), 3000)
     } finally {
       setSubmitting(false)
     }

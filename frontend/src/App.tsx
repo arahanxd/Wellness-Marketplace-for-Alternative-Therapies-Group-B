@@ -22,6 +22,9 @@ import { ProtectedRoute } from './components/ProtectedRoute'
 import { VerificationPendingPage } from './pages/VerificationPendingPage'
 import { VerifyEmailLanding } from './pages/VerifyEmailLanding'
 import { OtpVerificationPage } from './pages/OtpVerificationPage'
+import { AiRecommendationPage } from './pages/AiRecommendationPage'
+
+
 
 function App() {
   return (
@@ -31,6 +34,8 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+      
+        <Route path="/ai-recommendation" element={<AiRecommendationPage />} />
 
         {/* Verification */}
         <Route path="/verification-sent" element={<VerificationPendingPage />} />

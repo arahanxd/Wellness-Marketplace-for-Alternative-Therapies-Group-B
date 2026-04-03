@@ -28,12 +28,15 @@ public class ReminderService {
             return;
         }
 
+        LocalDateTime now = LocalDateTime.now();
         LocalDateTime sessionStart = LocalDateTime.of(booking.getSessionDate(), booking.getStartTime());
         LocalDateTime reminderTime = sessionStart.minusMinutes(30);
-        long epochSeconds = calculateEpoch(reminderTime);
 
-        log.info("🕐 Scheduling session reminder: ID={}, sessionStart={}, reminderTime={}, epoch={}",
-                booking.getId(), sessionStart, reminderTime, epochSeconds);
+        // SendGrid limit: can't schedule more than 72 hours in advance
+        if (reminderTime.isAfter(now.plusHours(72))) {
+            log.info("⏳ Session ID: {} is too far in future (>72h). Will be scheduled by periodic task later.", booking.getId());
+            return;
+        }
 
         String clientSubject = "Session Reminder – Starts in 30 Minutes";
         String clientBody = String.format(
@@ -45,22 +48,32 @@ public class ReminderService {
                 "Dear %s,\n\nYou have an upcoming session with %s starting in 30 minutes.",
                 booking.getProvider().getName(), booking.getClient().getName());
 
-        String clientMsgId = emailService.sendScheduledReminder(
-                booking.getClient().getEmail(), clientSubject, clientBody, epochSeconds);
-        log.info("📧 Patient reminder queued for session ID: {} — msgId={}",
-                booking.getId(), clientMsgId != null ? clientMsgId : "FAILED");
+        String clientMsgId;
+        String providerMsgId;
 
-        String providerMsgId = emailService.sendScheduledReminder(
-                booking.getProvider().getEmail(), providerSubject, providerBody, epochSeconds);
-        log.info("📧 Practitioner reminder queued for session ID: {} — msgId={}",
-                booking.getId(), providerMsgId != null ? providerMsgId : "FAILED");
+        if (reminderTime.isBefore(now.plusMinutes(5))) {
+            log.info("📧 Session ID: {} starts soon or already passed 30m mark. Sending reminders immediately.", booking.getId());
+            emailService.sendImmediateSendGridEmail(booking.getClient().getEmail(), clientSubject, clientBody);
+            emailService.sendImmediateSendGridEmail(booking.getProvider().getEmail(), providerSubject, providerBody);
+            clientMsgId = "SENT_IMMEDIATE";
+            providerMsgId = "SENT_IMMEDIATE";
+        } else {
+            long epochSeconds = calculateEpoch(reminderTime);
+            log.info("🕐 Scheduling session reminder: ID={}, sessionStart={}, reminderTime={}, epoch={}",
+                    booking.getId(), sessionStart, reminderTime, epochSeconds);
+            
+            clientMsgId = emailService.sendScheduledReminder(
+                    booking.getClient().getEmail(), clientSubject, clientBody, epochSeconds);
+            providerMsgId = emailService.sendScheduledReminder(
+                    booking.getProvider().getEmail(), providerSubject, providerBody, epochSeconds);
+        }
 
         if (clientMsgId != null || providerMsgId != null) {
-            booking.setReminderSent(false); // Reset to allow poller to send in-app notifications
+            booking.setReminderSent(true); 
             bookingRepository.save(booking);
-            log.info("✅ Session reminder persisted for session ID: {} at epoch {}", booking.getId(), epochSeconds);
+            log.info("✅ Session reminder status updated for session ID: {}", booking.getId());
         } else {
-            log.error("❌ Both SendGrid calls failed for session ID: {} — no reminder was scheduled.", booking.getId());
+            log.error("❌ Email delivery failed for session ID: {} — no reminder was sent/scheduled.", booking.getId());
         }
     }
 
